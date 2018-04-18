@@ -101,7 +101,8 @@ class HModel(object):
         target_output = self.iterator.target
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target_output, logits=logits)
         target_weights = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value, dtype=logits.dtype)
-        loss = tf.reduce_sum(crossent * target_weights) / tf.to_float(self.batch_size)
+        loss = tf.reduce_mean(crossent * target_weights)
+               #/ tf.to_float(self.batch_size)
         return loss
 
 
@@ -268,8 +269,8 @@ class H_RNN_RNN(H_RNN):
         # Create embedding layer
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, inputs)
-        with tf.variable_scope("utterance_fnn") as scope:
-            # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len,embed_dim]
+        with tf.variable_scope("utterance_rnn") as scope:
+            # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len, embed_dim]
             reshape_input_emb = tf.reshape(emb_inp, [-1, self.max_uttr_length, hparams.input_emb_size])
             reshape_uttr_length = tf.reshape(self.iterator.input_uttr_length, [-1])
             rnn_outputs, last_hidden_sate = self.rnn_network(reshape_input_emb, scope.dtype,
