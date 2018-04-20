@@ -31,7 +31,7 @@ def parse_sequence_tfrecord(example, feature_size):
         "length": tf.FixedLenFeature([], dtype=tf.int64),
     }
     sequence_features = {
-        "tokens": tf.FixedLenSequenceFeature([feature_size], dtype=tf.int64),
+        "tokens": tf.FixedLenSequenceFeature([feature_size], dtype=tf.float32),
         "labels": tf.FixedLenSequenceFeature([], dtype=tf.int64),
     }
 
