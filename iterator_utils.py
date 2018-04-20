@@ -1,6 +1,6 @@
 import collections
 import tensorflow as tf
-import create_dataset
+import tfrecords_creator
 
 class BatchedInput(collections.namedtuple("BatchedInput",
                                            ("initializer",
@@ -94,7 +94,7 @@ def get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table, 
 
 def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None):
     if not output_buffer_size: output_buffer_size = batch_size * 1000
-    dataset = dataset.map(lambda example: create_dataset.parse_sequence_tfrecord(example, feature_size), num_parallel_calls=5)
+    dataset = dataset.map(lambda example: tfrecords_creator.parse_sequence_tfrecord(example, feature_size), num_parallel_calls=5)
     dataset = dataset.shuffle(output_buffer_size, random_seed)
 
     def batching_func(x):
