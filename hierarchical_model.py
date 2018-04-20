@@ -107,18 +107,22 @@ class HModel(object):
         return logits
 
 
+    def get_tensor_dim(self,tensor,time_axis):
+        return tensor.shape[time_axis].value or tf.shape(tensor)[time_axis]
+
+
     def build_network(self, hparams):
         print ("Creating %s graph" % self.mode)
         dtype = tf.float32
         with tf.variable_scope("h_model",dtype = dtype) as scope:
             # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len, embed_dim]
-            reshape_input = tf.reshape(self.iterator.input, [-1, (self.iterator.input).get_shape()[-1]])
+            reshape_input = tf.reshape(self.iterator.input, [-1, self.get_tensor_dim(self.iterator.input,-1)])
             # utterances representation: utterances_embs.shape = [batch_size*num_utterances, uttr_units] or for bi:
             # [batch_size*num_utterances, uttr_units*2]
             utterances_embs=self.utterance_encoder(hparams, reshape_input)
             # reshape_utterances_embs.shape = [batch_size,  max_sess_length, uttr_units * 2] or
             # [batch_size, max_sess_length, uttr_units]
-            reshape_utterances_embs = tf.reshape(utterances_embs, shape=[self.batch_size, tf.shape(self.iterator.input)[1],
+            reshape_utterances_embs = tf.reshape(utterances_embs, shape=[self.batch_size, self.get_tensor_dim(self.iterator.input,1),
                                                                          utterances_embs.get_shape()[-1]])
             # session rnn outputs: session_rnn_outputs.shape = [batch_size, max_sess_length, sess_units] or for bi:
             # [batch_size, max_sess_length, sess_units*2]
@@ -211,7 +215,7 @@ class H_RNN_RNN(H_RNN):
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, inputs)
         with tf.variable_scope("utterance_rnn") as scope:
             reshape_uttr_length = tf.reshape(self.iterator.input_uttr_length, [-1])
-            rnn_outputs, last_hidden_sate = model_helper.rnn_network(inputs, scope.dtype,
+            rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
                                                              hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                              hparams.uttr_units, hparams.uttr_layers,
                                                              hparams.uttr_in_to_hid_dropout,
