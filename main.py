@@ -281,4 +281,4 @@ if __name__ == '__main__':
     add_arguments(parser)
     # parse command line args
     flags, unparsed = parser.parse_known_args()
-    tf.app.run(main=main(flags), argv=[sys.argv[0]] + unparsed)
+    main(flags)
