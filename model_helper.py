@@ -22,33 +22,46 @@ class InferModel(collections.namedtuple("EvalModel",("graph", "model", "input_fi
 def create_train_model(model_creator, hparams, input_path, target_path, mode):
     graph = tf.Graph()
     with graph.as_default() , tf.container("train"):
-        input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
-        input_dataset = tf.data.TextLineDataset(input_path)
-        output_dataset = tf.data.TextLineDataset(target_path)
-        iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
+        # quick and dirty. pick a common format for the input data.
+        if hparams.model_architecture == "h-rnn-ffn":
+            dataset = tf.data.TFRecordDataset(input_path)
+            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
+                                                                    feature_size=hparams.feature_size,
+                                                                    random_seed=hparams.random_seed)
+        else:
+            input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
+            input_dataset = tf.data.TextLineDataset(input_path)
+            output_dataset = tf.data.TextLineDataset(target_path)
+            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
                                                    batch_size=hparams.batch_size, random_seed=hparams.random_seed,
-                                                   pad=hparams.pad, sess_max_len=hparams.sess_max_len)
-        model = model_creator(hparams, mode, iterator, input_vocab_table=input_vocab_table)
+                                                   pad=hparams.pad)
+        model = model_creator(hparams, mode, iterator)
         return TrainModel(graph, model, iterator)
 
 
 def create_eval_model(model_creator, hparams, mode):
     graph = tf.Graph()
     with graph.as_default(), tf.container("eval"):
-        # create a table to map words to vocab ids.
-        input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
-        # define a placeholder for the input dataset.
-        # we will dynamically initialize this placeholder with a file name during validation.
-        # The reason for this is that during validation, we may want to evaluate our trained model on different datasets.
-        input_file_placeholder= tf.placeholder(shape=(),dtype=tf.string)
-        input_dataset = tf.data.TextLineDataset(input_file_placeholder)
-        output_file_placeholder= tf.placeholder(shape=(), dtype=tf.string)
-        output_dataset = tf.data.TextLineDataset(output_file_placeholder)
+        input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
+        output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
+        if hparams.model_architecture == "h-rnn-ffn":
+            dataset = tf.data.TFRecordDataset(input_file_placeholder)
+            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
+                                                                    feature_size=hparams.feature_size,
+                                                                    random_seed=hparams.random_seed)
+        else:
+            # define a placeholder for the input dataset.
+            # we will dynamically initialize this placeholder with a file name during validation.
+            # The reason for this is that during validation, we may want to evaluate our trained model on different datasets.
+            # create a table to map words to vocab ids.
+            input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
+            input_dataset = tf.data.TextLineDataset(input_file_placeholder)
+            output_dataset = tf.data.TextLineDataset(output_file_placeholder)
 
-        iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
-                                               batch_size=hparams.eval_batch_size, random_seed=hparams.random_seed,
-                                               pad=hparams.pad, sess_max_len=hparams.sess_max_len)
-        model = model_creator(hparams, mode, iterator, input_vocab_table=input_vocab_table)
+            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
+                                                   batch_size=hparams.eval_batch_size, random_seed=hparams.random_seed,
+                                                   pad=hparams.pad)
+        model = model_creator(hparams, mode, iterator)
         return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
 
 
@@ -61,9 +74,79 @@ def create_infer_model(model_creator, hparams, mode):
 
         iterator = iterator_utils.get_iterator_hierarchical_infer(input_dataset, input_vocab_table,
                                                      batch_size=hparams.predict_batch_size,
-                                                     pad=hparams.pad, sess_max_len=hparams.sess_max_len)
+                                                     pad=hparams.pad)
         model = model_creator(hparams, mode, iterator, input_vocab_table=input_vocab_table)
         return InferModel(graph, model, input_file_placeholder, iterator)
+
+
+def rnn_network(inputs, dtype, rnn_type,
+                unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias, time_major, mode):
+    if rnn_type == 'uni':
+        rnn_outputs, last_hidden_sate = rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout,
+                                                 sequence_length, forget_bias, time_major,mode)
+    elif rnn_type == 'bi':
+        num_bi_layers = int(num_layers * 2)
+        rnn_outputs, last_hidden_sate = bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers,
+                                                               in_to_hid_dropout, sequence_length, forget_bias, time_major, mode)
+        last_hidden_sate = tf.concat(last_hidden_sate, -1)
+    else:
+        raise ValueError("Unknown encoder_type %s" % rnn_type)
+    return rnn_outputs, last_hidden_sate
+
+
+def rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias,
+        time_major, mode):
+    cell = create_rnn_cell(unit_type, num_units, num_layers,
+                                        forget_bias, in_to_hid_dropout, mode)
+    # encoder_state --> a Tensor of shape `[batch_size, cell.state_size]` or a list of such Tensors for many layers
+    # the sequence_length achieves 1) performance 2) correctness. The RNN calculations stop when the true seq.
+    # length is reached for each sequence. All outputs (hidden states) past the true seq length are set to 0.
+    # The hidden state of the true last timestep is returned as last_hidden_state.s
+    # he shape format of the inputs and outputs Tensors. If true, these Tensors must be shaped [max_time, batch_size
+    # , depth]. If false, these Tensors must be shaped [batch_size, max_time, depth]. Using time_major = True is
+    # a bit more efficient
+    rnn_outputs, last_hidden_sate = tf.nn.dynamic_rnn(cell, inputs,
+                                                      dtype=dtype,
+                                                      sequence_length=sequence_length,
+                                                      time_major=time_major)
+    return rnn_outputs, last_hidden_sate
+
+
+def ffn(inputs, hparams):
+    layer_input = inputs
+    for l in range(hparams.uttr_layers):
+        layer_output = tf.layers.Dense(hparams.uttr_units[l], use_bias=hparams.out_bias, name="output_layer")(layer_input)
+        layer_output = tf.layers.dropout(layer_output, hparams.uttr_in_to_hid_dropout[l])
+        layer_input = layer_output
+    return layer_input
+
+
+
+def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, in_to_hid_dropout,
+                      sequence_length, forget_bias, time_major, mode):
+    # Construct forward and backward cells.
+    #each one has num_bi_layers layers. Each layer has num_units.
+    fw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
+                                           forget_bias, in_to_hid_dropout, mode)
+    bw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
+                                           forget_bias, in_to_hid_dropout, mode)
+
+    # initial_state_fw, initial_state_bw are initialized to 0
+    # bi_outputs is a tuple (output_fw, output_bw) containing the forward and the backward rnn output Tensor
+    # bi_state is a tuple (output_state_fw, output_state_bw) with the forward and the backward final states.
+    # Each state has num_units.
+    # num_bi_layers>1, we have a list of num_bi_layers tuples.
+    bi_outputs,bi_state = tf.nn.bidirectional_dynamic_rnn(
+        fw_cell,
+        bw_cell,
+        inputs,
+        dtype=dtype,
+        sequence_length=sequence_length,
+        time_major=time_major)
+
+    # return fw and bw outputs,i.e., ([h1_fw;h1_bw],...,[hT_fw;hT_bw]) concatenated.
+    return tf.concat(bi_outputs,-1),bi_state
+
 
 
 def get_initializer(init_op, seed=None, init_weight=None):
@@ -171,7 +254,7 @@ def run_batch_evaluation(model, session):
     accuracy = 0.0
     while True:
         try:
-            batch_loss,batch_accuracy,batch_size=model.eval(session)
+            batch_loss,batch_accuracy,batch_size,_=model.eval(session)
             loss+=batch_loss
             accuracy+=batch_accuracy
             batch_count+=1
@@ -181,6 +264,29 @@ def run_batch_evaluation(model, session):
     loss /= batch_count
     accuracy /= batch_count
     return loss, accuracy
+
+
+def run_batch_evaluation_and_prediction(model, session):
+    batch_count=0.0
+    loss=0.0
+    accuracy = 0.0
+    concat_predictions = None
+    while True:
+        try:
+            batch_loss,batch_accuracy,batch_size,predictions=model.eval(session)
+            loss+=batch_loss
+            accuracy+=batch_accuracy
+            batch_count+=1
+            if concat_predictions is None:
+                concat_predictions = predictions
+            else:
+                concat_predictions = np.append(concat_predictions, predictions, axis=0)
+        except tf.errors.OutOfRangeError:
+            break
+
+    loss /= batch_count
+    accuracy /= batch_count
+    return loss, accuracy, concat_predictions
 
 
 def run_batch_prediction(model, session):
@@ -198,6 +304,7 @@ def run_batch_prediction(model, session):
         except tf.errors.OutOfRangeError:
             break
     return concat_predictions
+
 
 def load_model(model, session, name, ckpt):
     start_time=time.time()
@@ -231,3 +338,13 @@ def add_summary(summary_writer, tag, value):
     summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
     # global_step value to record with the summary (optional).
     summary_writer.add_summary(summary, global_step=None)
+
+def get_model_creator(model_architecture):
+    import hierarchical_model
+    if model_architecture == "h-rnn-ffn": model_creator = hierarchical_model.H_RNN_FFN
+    elif model_architecture == "h-rnn-cnn":
+        model_creator = hierarchical_model.H_RNN_CNN
+    elif model_architecture == "h-rnn-rnn":
+        model_creator = hierarchical_model.H_RNN_RNN
+    else: raise ValueError("Unknown model architecture. Only simple_rnn is supported so far.")
+    return model_creator

@@ -1,3 +1,5 @@
+import io
+
 import tensorflow as tf
 import codecs
 import os
@@ -88,3 +90,39 @@ def get_config_proto(log_device_placement=False, allow_soft_placement=True):
     # allocate as much GPU memory as is needed, based on runtime allocations.
     config_proto.gpu_options.allow_growth = True
     return config_proto
+
+
+def save_file(filepath, data):
+    with io.open(filepath, 'w', encoding="utf-8") as f:
+        newline = ""
+        for d in data:
+            f.write(unicode(newline+str(d)))
+            newline="\n"
+
+
+def load_file(filepath):
+    with io.open(filepath, "r", encoding="utf-8") as f:
+        data=f.read().splitlines()
+    return data
+
+
+def save_words_to_file(filepath, sessions, uttr_delimiter="#"):
+    with io.open(filepath, 'w', encoding="utf-8") as f:
+        newline = ""
+        for sess in sessions:
+            sess_line = ""
+            newuttr = ""
+            for uttr in sess:
+                uttr=" ".join(uttr)
+                sess_line+=newuttr+uttr
+                newuttr = uttr_delimiter
+            f.write(unicode(newline+sess_line))
+            newline="\n"
+
+
+def save_labels_to_file(filepath, data, uttr_delimiter="#"):
+    with io.open(filepath, 'w', encoding="utf-8") as f:
+        newline = ""
+        for d in data:
+            f.write(unicode(newline+uttr_delimiter.join(d)))
+            newline="\n"

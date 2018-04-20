@@ -35,10 +35,6 @@ def add_arguments(parser):
     parser.add_argument("--pad", type=str, default="<pad>",
                         help="Padding symbol")
 
-    # Input sequence max length
-    parser.add_argument("--sess_max_len", type=int, default=None,
-                        help="Max length of session sequence.")
-
     # network
     parser.add_argument("--model_architecture", type=str, default="simple-rnn",
                         help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn. Model architecture.")
@@ -83,7 +79,8 @@ def add_arguments(parser):
                         help="last | max | mean. Pooling scheme for utterance hidden states to represent an utterance.")
     parser.add_argument('--sess_pooling', type=str, default="last",
                         help="last | max | mean. Pooling scheme for session hidden states to represent a session.")
-
+    #ffn
+    parser.add_argument("--feature_size", type=int, default=32, help="Number of features if ffn as utterance encoder.")
     # training
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--num_epochs", type=int, default=10, help="Number of epochs to train.")
@@ -150,8 +147,6 @@ def create_hparams(flags):
         vocab_path=flags.vocab_path,
         unk=flags.unk,
         pad=flags.pad,
-        # Input sequence max length
-        sess_max_len=flags.sess_max_len,
         # network
         model_architecture=flags.model_architecture,
         uttr_time_major=flags.uttr_time_major,
@@ -177,6 +172,8 @@ def create_hparams(flags):
         uttr_pooling=flags.uttr_pooling,
         sess_pooling=flags.sess_pooling,
         out_bias=flags.out_bias,
+        #ffn
+        feature_size=flags.feature_size,
         # training
         batch_size=flags.batch_size,
         num_epochs=flags.num_epochs,
@@ -207,7 +204,10 @@ def create_hparams(flags):
 
 def extend_hparams(hparams):
     hparams.add_hparam("input_emb_pretrain", hparams.input_emb_file is not None)
-    vocab_size, vocab_path = vocab_utils.check_vocab(hparams.vocab_path, hparams.out_dir,
+    vocab_size = None
+    vocab_path = None
+    if hparams.vocab_path is not None:
+        vocab_size, vocab_path = vocab_utils.check_vocab(hparams.vocab_path, hparams.out_dir,
                                                      unk=hparams.unk, pad=hparams.pad)
     hparams.add_hparam("vocab_size",vocab_size)
     hparams.set_hparam("vocab_path",vocab_path)
@@ -219,7 +219,9 @@ def extend_hparams(hparams):
 
 
 def check_hparams(hparams):
-    # Sanity checks
+    if hparams.model_architecture == "h-rnn-rnn" or hparams.model_architecture == "h-ffn-rnn":
+        if hparams.vocab_path is None: raise ValueError("If RNN or CNN in the utterance level, input vocab "
+                                                        "should not be None.")
     pass
 
 

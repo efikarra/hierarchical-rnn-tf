@@ -9,17 +9,11 @@ class HModel(object):
       mode: TRAIN | EVAL | INFER
       iterator: Dataset Iterator that feeds data.
       input_vocab_table: Lookup table mapping input words to ids."""
-    def __init__(self, hparams, mode, iterator, input_vocab_table=None):
+    def __init__(self, hparams, mode, iterator):
         self.iterator=iterator
-        self.input_vocab_table = input_vocab_table
         self.n_classes = hparams.n_classes
-        self.vocab_size = hparams.vocab_size
         self.batch_size = iterator.batch_size
         self.mode = mode
-
-        self.max_sess_length = tf.shape(self.iterator.input)[1]
-        self.max_uttr_length = tf.shape(self.iterator.input)[2]
-
 
         # Initializer
         initializer = model_helper.get_initializer(hparams.init_op, hparams.random_seed, hparams.init_weight)
@@ -117,12 +111,18 @@ class HModel(object):
         print ("Creating %s graph" % self.mode)
         dtype = tf.float32
         with tf.variable_scope("h_model",dtype = dtype) as scope:
+            # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len, embed_dim]
+            reshape_input = tf.reshape(self.iterator.input, [-1, (self.iterator.input).get_shape()[-1]])
             # utterances representation: utterances_embs.shape = [batch_size*num_utterances, uttr_units] or for bi:
             # [batch_size*num_utterances, uttr_units*2]
-            utterances_embs=self.utterance_encoder(hparams, self.iterator.input)
+            utterances_embs=self.utterance_encoder(hparams, reshape_input)
+            # reshape_utterances_embs.shape = [batch_size,  max_sess_length, uttr_units * 2] or
+            # [batch_size, max_sess_length, uttr_units]
+            reshape_utterances_embs = tf.reshape(utterances_embs, shape=[self.batch_size, tf.shape(self.iterator.input)[1],
+                                                                         utterances_embs.get_shape()[-1]])
             # session rnn outputs: session_rnn_outputs.shape = [batch_size, max_sess_length, sess_units] or for bi:
             # [batch_size, max_sess_length, sess_units*2]
-            session_rnn_outputs = self.session_encoder(hparams, utterances_embs)
+            session_rnn_outputs = self.session_encoder(hparams, reshape_utterances_embs)
             logits = self.output_layer(hparams, session_rnn_outputs)
             # compute loss
             if self.mode == tf.contrib.learn.ModeKeys.INFER:
@@ -157,7 +157,7 @@ class HModel(object):
 
     def eval(self, sess):
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
-        return sess.run([self.eval_loss, self.accuracy, self.batch_size])
+        return sess.run([self.eval_loss, self.accuracy, self.batch_size, self.predictions])
 
 
     def predict(self, sess):
@@ -169,75 +169,13 @@ class H_RNN(HModel):
     """Hierarchical Model with RNN in the session level"""
     def session_encoder(self, hparams, utterances_embs):
         with tf.variable_scope("session_rnn") as scope:
-            # reshape_utterances_embs.shape = [batch_size,  max_sess_length, uttr_units * 2] or
-            # [batch_size, max_sess_length, uttr_units]
-            reshape_utterances_embs = tf.reshape(utterances_embs, shape=[self.batch_size, self.max_sess_length,
-                                                                         utterances_embs.get_shape()[-1]])
-            rnn_outputs, last_hidden_sate = self.rnn_network(reshape_utterances_embs, scope.dtype,
+            rnn_outputs, last_hidden_sate = model_helper.rnn_network(utterances_embs, scope.dtype,
                                                              hparams.sess_rnn_type, hparams.sess_unit_type,
                                                              hparams.sess_units, hparams.sess_layers,
                                                              hparams.sess_in_to_hid_dropout,
                                                              self.iterator.input_sess_length,
-                                                             hparams.forget_bias, hparams.sess_time_major)
+                                                             hparams.forget_bias, hparams.sess_time_major, self.mode)
         return rnn_outputs
-
-    def rnn_network(self, inputs, dtype, rnn_type,
-                    unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias, time_major):
-        if rnn_type == 'uni':
-            rnn_outputs, last_hidden_sate = self.rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout,
-                                                     sequence_length, forget_bias, time_major)
-        elif rnn_type == 'bi':
-            num_bi_layers = int(num_layers * 2)
-            rnn_outputs, last_hidden_sate = self.bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers,
-                                                                   in_to_hid_dropout, sequence_length, forget_bias, time_major)
-            last_hidden_sate = tf.concat(last_hidden_sate, -1)
-        else:
-            raise ValueError("Unknown encoder_type %s" % rnn_type)
-        return rnn_outputs, last_hidden_sate
-
-
-    def rnn(self, inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias,
-            time_major):
-        cell = model_helper.create_rnn_cell(unit_type, num_units, num_layers,
-                                            forget_bias, in_to_hid_dropout, self.mode)
-        # encoder_state --> a Tensor of shape `[batch_size, cell.state_size]` or a list of such Tensors for many layers
-        # the sequence_length achieves 1) performance 2) correctness. The RNN calculations stop when the true seq.
-        # length is reached for each sequence. All outputs (hidden states) past the true seq length are set to 0.
-        # The hidden state of the true last timestep is returned as last_hidden_state.s
-        # he shape format of the inputs and outputs Tensors. If true, these Tensors must be shaped [max_time, batch_size
-        # , depth]. If false, these Tensors must be shaped [batch_size, max_time, depth]. Using time_major = True is
-        # a bit more efficient
-        rnn_outputs, last_hidden_sate = tf.nn.dynamic_rnn(cell, inputs,
-                                                          dtype=dtype,
-                                                          sequence_length=sequence_length,
-                                                          time_major=time_major)
-        return rnn_outputs, last_hidden_sate
-
-
-    def bidirectional_rnn(self, inputs, dtype, unit_type, num_units, num_bi_layers, in_to_hid_dropout,
-                          sequence_length, forget_bias, time_major):
-        # Construct forward and backward cells.
-        #each one has num_bi_layers layers. Each layer has num_units.
-        fw_cell = model_helper.create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                               forget_bias, in_to_hid_dropout, self.mode)
-        bw_cell = model_helper.create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                               forget_bias, in_to_hid_dropout, self.mode)
-
-        # initial_state_fw, initial_state_bw are initialized to 0
-        # bi_outputs is a tuple (output_fw, output_bw) containing the forward and the backward rnn output Tensor
-        # bi_state is a tuple (output_state_fw, output_state_bw) with the forward and the backward final states.
-        # Each state has num_units.
-        # num_bi_layers>1, we have a list of num_bi_layers tuples.
-        bi_outputs,bi_state = tf.nn.bidirectional_dynamic_rnn(
-            fw_cell,
-            bw_cell,
-            inputs,
-            dtype=dtype,
-            sequence_length=sequence_length,
-            time_major=time_major)
-
-        # return fw and bw outputs,i.e., ([h1_fw;h1_bw],...,[hT_fw;hT_bw]) concatenated.
-        return tf.concat(bi_outputs,-1),bi_state
 
 
 class H_RNN_FFN(H_RNN):
@@ -250,7 +188,7 @@ class H_RNN_FFN(H_RNN):
         layer_input = inputs
         for l in range(hparams.uttr_layers):
             layer_output = tf.layers.Dense(hparams.uttr_units[l], use_bias=hparams.out_bias, name="output_layer")(layer_input)
-            layer_output = tf.layers.dropout(layer_output, hparams.uttr_ffn_dropouts[l])
+            layer_output = tf.layers.dropout(layer_output, hparams.uttr_in_to_hid_dropout[l])
             layer_input = layer_output
         return layer_input
 
@@ -266,19 +204,19 @@ class H_RNN_RNN(H_RNN):
 
 
     def utterance_encoder(self, hparams, inputs):
+        self.vocab_size = hparams.vocab_size
+        self.max_uttr_length = tf.shape(self.iterator.input)[2]
         # Create embedding layer
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, inputs)
         with tf.variable_scope("utterance_rnn") as scope:
-            # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len, embed_dim]
-            reshape_input_emb = tf.reshape(emb_inp, [-1, self.max_uttr_length, hparams.input_emb_size])
             reshape_uttr_length = tf.reshape(self.iterator.input_uttr_length, [-1])
-            rnn_outputs, last_hidden_sate = self.rnn_network(reshape_input_emb, scope.dtype,
+            rnn_outputs, last_hidden_sate = model_helper.rnn_network(inputs, scope.dtype,
                                                              hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                              hparams.uttr_units, hparams.uttr_layers,
                                                              hparams.uttr_in_to_hid_dropout,
                                                              reshape_uttr_length,
-                                                             hparams.forget_bias, hparams.uttr_time_major)
+                                                             hparams.forget_bias, hparams.uttr_time_major,self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
             utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
@@ -288,6 +226,7 @@ class H_RNN_RNN(H_RNN):
 class H_RNN_CNN(H_RNN):
     """Hierarchical Model with RNN in the session level and CNN in the utterance level."""
     def utterance_encoder(self, hparams, inputs):
+        self.vocab_size = hparams.vocab_size
         # Create embedding layer
         self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
             (vocab_size=self.vocab_size,

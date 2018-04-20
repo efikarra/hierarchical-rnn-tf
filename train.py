@@ -3,7 +3,6 @@ import time
 import os
 import utils
 import model_helper
-import model
 import numpy as np
 import evaluation
 from tensorflow.python.client import timeline
@@ -18,12 +17,7 @@ def train(hparams):
     log_device_placement = hparams.log_device_placement
 
     input_emb_weights = np.loadtxt(hparams.input_emb_file, delimiter=' ') if hparams.input_emb_file else None
-    if hparams.model_architecture == "h-rnn-ffn": model_creator = model.H_RNN_FFN
-    elif hparams.model_architecture == "h-rnn-cnn":
-        model_creator = model.H_RNN_CNN
-    elif hparams.model_architecture == "h-rnn-rnn":
-        model_creator = model.H_RNN_RNN
-    else: raise ValueError("Unknown model architecture. Only simple_rnn is supported so far.")
+    model_creator = model_helper.get_model_creator(hparams.model_architecture)
     #create 2  models in 2 graphs for train and evaluation, with 2 sessions sharing the same variables.
     train_model = model_helper.create_train_model(model_creator, hparams, hparams.train_input_path,
                                                   hparams.train_target_path, mode=tf.contrib.learn.ModeKeys.TRAIN)
