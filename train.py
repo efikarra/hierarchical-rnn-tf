@@ -135,10 +135,15 @@ def run_evaluation(eval_model, eval_sess, model_dir, input_eval_file, output_eva
     with eval_model.graph.as_default():
         # initialize the variables of the eval graph in eval_sess or load them from a checkpoint.
         loaded_eval_model = model_helper.create_or_load_model(eval_model.model, eval_sess, "eval", model_dir, input_emb_weights)
-    eval_iterator_feed_dict = {
-        eval_model.input_file_placeholder: input_eval_file,
-        eval_model.output_file_placeholder: output_eval_file
-    }
+    if output_eval_file is None:
+        eval_iterator_feed_dict = {
+            eval_model.input_file_placeholder: input_eval_file,
+        }
+    else:
+        eval_iterator_feed_dict = {
+            eval_model.input_file_placeholder: input_eval_file,
+            eval_model.output_file_placeholder: output_eval_file
+        }
     val_loss,val_accuracy = evaluation.eval(loaded_eval_model, eval_sess, eval_model.iterator, eval_iterator_feed_dict)
     model_helper.add_summary(summary_writer, "val_loss", val_loss)
     model_helper.add_summary(summary_writer, "val_accuracy", val_accuracy)

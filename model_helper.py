@@ -5,7 +5,7 @@ import iterator_utils
 import vocab_utils
 import numpy as np
 import pooling
-
+import model
 
 class TrainModel(collections.namedtuple("TrainModel",("graph", "model", "iterator"))):
     pass
@@ -19,22 +19,39 @@ class InferModel(collections.namedtuple("EvalModel",("graph", "model", "input_fi
     pass
 
 
+def get_dataset_iterator(hparams, input_path, target_path):
+    if hparams.model_architecture == "ffn":
+        dataset = tf.data.TFRecordDataset(input_path)
+        iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=hparams.batch_size,
+                                                        feature_size=hparams.feature_size,
+                                                        random_seed=hparams.random_seed)
+    elif hparams.model_architecture == "h-rnn-ffn":
+        dataset = tf.data.TFRecordDataset(input_path)
+        iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
+                                                                feature_size=hparams.feature_size,
+                                                                random_seed=hparams.random_seed)
+    else:
+        input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
+        input_dataset = tf.data.TextLineDataset(input_path)
+        output_dataset = tf.data.TextLineDataset(target_path)
+        if hparams.model_architecture == "h-rnn-rnn":
+            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
+                                                            batch_size=hparams.batch_size,
+                                                            random_seed=hparams.random_seed,
+                                                            pad=hparams.pad)
+        else:
+            iterator = iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table,
+                                                                batch_size=hparams.batch_size,
+                                                                random_seed=hparams.random_seed,
+                                                                pad=hparams.pad)
+    return iterator
+
+
 def create_train_model(model_creator, hparams, input_path, target_path, mode):
     graph = tf.Graph()
     with graph.as_default() , tf.container("train"):
         # quick and dirty. pick a common format for the input data.
-        if hparams.model_architecture == "h-rnn-ffn":
-            dataset = tf.data.TFRecordDataset(input_path)
-            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
-                                                                    feature_size=hparams.feature_size,
-                                                                    random_seed=hparams.random_seed)
-        else:
-            input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
-            input_dataset = tf.data.TextLineDataset(input_path)
-            output_dataset = tf.data.TextLineDataset(target_path)
-            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
-                                                   batch_size=hparams.batch_size, random_seed=hparams.random_seed,
-                                                   pad=hparams.pad)
+        iterator = get_dataset_iterator(hparams, input_path, target_path)
         model = model_creator(hparams, mode, iterator)
         return TrainModel(graph, model, iterator)
 
@@ -43,24 +60,10 @@ def create_eval_model(model_creator, hparams, mode):
     graph = tf.Graph()
     with graph.as_default(), tf.container("eval"):
         input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
-        output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
-        if hparams.model_architecture == "h-rnn-ffn":
-            dataset = tf.data.TFRecordDataset(input_file_placeholder)
-            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
-                                                                    feature_size=hparams.feature_size,
-                                                                    random_seed=hparams.random_seed)
-        else:
-            # define a placeholder for the input dataset.
-            # we will dynamically initialize this placeholder with a file name during validation.
-            # The reason for this is that during validation, we may want to evaluate our trained model on different datasets.
-            # create a table to map words to vocab ids.
-            input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
-            input_dataset = tf.data.TextLineDataset(input_file_placeholder)
-            output_dataset = tf.data.TextLineDataset(output_file_placeholder)
-
-            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
-                                                   batch_size=hparams.eval_batch_size, random_seed=hparams.random_seed,
-                                                   pad=hparams.pad)
+        output_file_placeholder=None
+        if hparams.model_architecture=="ffn" or hparams.model_architecture=="h-rnn-ffn":
+            output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
+        iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder)
         model = model_creator(hparams, mode, iterator)
         return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
 
@@ -346,5 +349,13 @@ def get_model_creator(model_architecture):
         model_creator = hierarchical_model.H_RNN_CNN
     elif model_architecture == "h-rnn-rnn":
         model_creator = hierarchical_model.H_RNN_RNN
+    elif model_architecture == "rnn":
+        model_creator = model.RNN
+    elif model_architecture == "ffn":
+        model_creator = model.FFN
     else: raise ValueError("Unknown model architecture. Only simple_rnn is supported so far.")
     return model_creator
+
+
+def get_tensor_dim(self,tensor,time_axis):
+    return tensor.shape[time_axis].value or tf.shape(tensor)[time_axis]

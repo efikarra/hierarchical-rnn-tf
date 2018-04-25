@@ -15,13 +15,31 @@ def sequence_to_tf_example(sequence, labels):
         fl_labels.feature.add().int64_list.value.append(labels[i])
     return example
 
-def vector_to_tf_example(array, labels):
-    pass
+def _dtype_feature(ndarray):
+    """match appropriate tf.train.Feature class with dtype of ndarray. """
+    assert isinstance(ndarray, np.ndarray)
+    dtype_ = ndarray.dtype
+    if dtype_ == np.float64 or dtype_ == np.float32:
+        return lambda array: tf.train.Feature(float_list=tf.train.FloatList(value=array))
+    elif dtype_ == np.int64:
+        return lambda array: tf.train.Feature(int64_list=tf.train.Int64List(value=array))
+    else:
+        raise ValueError("The input should be numpy ndarray. \
+                           Instaed got {}".format(ndarray.dtype))
 
 
-def parse_tfrecord(example):
+def vector_to_tf_example(array, label):
+    d_feature = {}
+    d_feature["features"]=_dtype_feature(array)(array)
+    d_feature["label"]=_dtype_feature(np.array([label]))(np.array([label]))
+    features = tf.train.Features(feature=d_feature)
+    example = tf.train.Example(features=features)
+    return example
+
+
+def parse_tfrecord(example, feature_size):
     feature = {'label': tf.FixedLenFeature([], tf.int64),
-               'features': tf.FixedLenFeature([12624], tf.float32)}
+               'features': tf.FixedLenFeature([feature_size], tf.float32)}
     parsed_example = tf.parse_single_example(serialized=example, features=feature)
     return {"features": parsed_example["features"], "label": parsed_example["label"]}
 
@@ -63,7 +81,13 @@ def convert_sessions_to_tfrecords(savepath, sessions, labels):
 
 
 def convert_sessions_bow_to_tfrecords(data_folder, out_folder):
-    bow_tr,bow_dev,bow_te,labs_tr,labs_dev,labs_te = preprocess.load_bow(data_folder)
+    """Convert sessions of utterances of bow into tfrecords of sequential examples."""
+    bow_tr,bow_dev,bow_te,labs_tr,labs_dev,labs_te = preprocess.load_pickle_data(data_folder,"splits_bow_tr.pickle",
+                                                                                 "splits_labs_tr.pickle",
+                                                                                 "splits_bow_dev.pickle",
+                                                                                 "splits_labs_dev.pickle",
+                                                                                "splits_bow_te.pickle",
+                                                                                 "splits_labs_te.pickle")
     for i,sess in enumerate(bow_tr):
         bow_tr[i] = np.squeeze(np.asarray(sess.todense()))
     for i,sess in enumerate(bow_dev):
@@ -76,7 +100,13 @@ def convert_sessions_bow_to_tfrecords(data_folder, out_folder):
 
 
 def convert_utterances_bow_to_tfrecords(data_folder, out_folder):
-    bow_tr, bow_dev, bow_te, labs_tr, labs_dev, labs_te = preprocess.load_bow(data_folder)
+    """Convert utterances of bow into tfrecords of examples."""
+    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = preprocess.load_pickle_data(data_folder,"splits_bow_tr.pickle",
+                                                                                 "splits_labs_tr.pickle",
+                                                                                 "splits_bow_dev.pickle",
+                                                                                 "splits_labs_dev.pickle",
+                                                                                "splits_bow_te.pickle",
+                                                                                 "splits_labs_te.pickle")
     for i,sess in enumerate(bow_tr):
         bow_tr[i] = np.squeeze(np.asarray(sess.todense()))
     for i,sess in enumerate(bow_dev):
@@ -94,9 +124,11 @@ def convert_utterances_bow_to_tfrecords(data_folder, out_folder):
     convert_utterances_to_tfrecords(out_folder+"test_bow_uttr.tfrecord", bow_te, labs_te)
 
 
-def test_dataset():
-    dataset = tf.contrib.data.TFRecordDataset("experiments/data/val_bow_uttr.tfrecord")
-    dataset = dataset.map(parse_tfrecord, num_parallel_calls=5)
+
+def test_tfrecords():
+    dataset = tf.contrib.data.TFRecordDataset("experiments/data/tfrecords/val_bow_uttr.tfrecord")
+    parse = lambda inp: parse_tfrecord(inp,12624)
+    dataset = dataset.map(parse, num_parallel_calls=5)
     # get actual length of session sequence
     batch_size = 4
     batched_dataset = dataset.batch(batch_size)
@@ -115,7 +147,9 @@ def test_dataset():
         print next_element["features"]
         print next_element["label"]
 
+
+
 if __name__=="__main__":
-    pass
     # convert_sessions_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/")
-    # convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/")
+    # convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/tfrecords/")
+    test_tfrecords()

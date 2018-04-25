@@ -3,25 +3,24 @@ import itertools
 import numpy as np
 import os
 import utils
-from utils import save_file, load_file, save_words_to_file, save_labels_to_file
 
 
 def load_pickle_data(data_folder, train_input_file, train_label_file,
                      val_input_file, val_label_file, test_input_file, test_label_file):
     import cPickle
     with open(os.path.join(data_folder,train_input_file), "rb") as f:
-        bow_tr = cPickle.load(f)
+        tr = cPickle.load(f)
     with open(os.path.join(data_folder,val_input_file), "rb") as f:
-        bow_val = cPickle.load(f)
+        val = cPickle.load(f)
     with open(os.path.join(data_folder,test_input_file), "rb") as f:
-        bow_te = cPickle.load(f)
+        te = cPickle.load(f)
     with open(os.path.join(data_folder,train_label_file), "rb") as f:
         labs_tr = cPickle.load(f)
     with open(os.path.join(data_folder,val_label_file), "rb") as f:
         labs_val = cPickle.load(f)
     with open(os.path.join(data_folder,test_label_file), "rb") as f:
         labs_te = cPickle.load(f)
-    return bow_tr,bow_val,bow_te,labs_tr,labs_val,labs_te
+    return tr,labs_tr,val,labs_val,te,labs_te
 
 
 def save_pickle_data(train_input, train_labels, val_input, val_labels, test_input, test_labels, out_folder, suffix):
@@ -61,8 +60,30 @@ def regroup_text_sessions(sessions,labels,session_size):
 
 
 
+def flatten_sessions(data_folder, out_folder, suffix):
+    words_tr, labs_tr, words_dev, labs_dev, words_te, labs_te = load_pickle_data(data_folder, "splits_words_tr.pickle",
+                                                                                 "splits_labs_tr.pickle",
+                                                                                 "splits_words_dev.pickle",
+                                                                                 "splits_labs_dev.pickle",
+                                                                                 "splits_words_te.pickle",
+                                                                                 "splits_labs_te.pickle")
+    words_tr = [" ".join(word) for uttr in words_tr for word in uttr]
+    words_dev = [" ".join(word) for uttr in words_dev for word in uttr]
+    words_te = [" ".join(word) for uttr in words_te for word in uttr]
+    labs_tr = [str(lab) for uttr in labs_tr for lab in uttr]
+    labs_dev = [str(lab) for uttr in labs_dev for lab in uttr]
+    labs_te = [str(lab) for uttr in labs_te for lab in uttr]
+    utils.save_to_file(os.path.join(out_folder,"train_input_"+suffix+".txt"), words_tr)
+    utils.save_to_file(os.path.join(out_folder,"val_input_"+suffix+".txt"), words_te)
+    utils.save_to_file(os.path.join(out_folder,"test_input_"+suffix+".txt"), words_dev)
+    utils.save_to_file(os.path.join(out_folder,"train_target_"+suffix+".txt"), labs_tr)
+    utils.save_to_file(os.path.join(out_folder,"val_target_"+suffix+".txt"), labs_te)
+    utils.save_to_file(os.path.join(out_folder,"test_target_"+suffix+".txt"), labs_dev)
+
+
+
 def split_text_sessions(data_folder,session_size):
-    words_tr, words_dev, words_te, labs_tr, labs_dev, labs_te = load_pickle_data(data_folder,"splits_words_tr.pickle",
+    words_tr, labs_tr, words_dev, labs_dev, words_te, labs_te = load_pickle_data(data_folder,"splits_words_tr.pickle",
                                                                                  "splits_labs_tr.pickle",
                                                                                  "splits_words_dev.pickle",
                                                                                  "splits_labs_dev.pickle",
@@ -86,16 +107,67 @@ def convert_mhddata_to_text(words_tr, labs_tr, words_dev, labs_dev, words_te, la
     for i, labs in enumerate(labs_dev):
         labs_dev[i] = [str(l) for l in labs]
 
-    save_words_to_file(os.path.join(out_folder,"train_input_"+suffix+".txt"), words_tr)
-    save_words_to_file(os.path.join(out_folder,"val_input_"+suffix+".txt"), words_te)
-    save_words_to_file(os.path.join(out_folder,"test_input_"+suffix+".txt"), words_dev)
-    save_labels_to_file(os.path.join(out_folder,"train_target_"+suffix+".txt"), labs_tr, uttr_delimiter=" ")
-    save_labels_to_file(os.path.join(out_folder,"val_target_"+suffix+".txt"), labs_te, uttr_delimiter=" ")
-    save_labels_to_file(os.path.join(out_folder,"test_target_"+suffix+".txt"), labs_dev, uttr_delimiter=" ")
+    utils.save_sess_words_to_file(os.path.join(out_folder,"train_input_"+suffix+".txt"), words_tr)
+    utils.save_sess_words_to_file(os.path.join(out_folder,"val_input_"+suffix+".txt"), words_te)
+    utils.save_sess_words_to_file(os.path.join(out_folder,"test_input_"+suffix+".txt"), words_dev)
+    utils.save_sess_labels_to_file(os.path.join(out_folder,"train_target_"+suffix+".txt"), labs_tr, uttr_delimiter=" ")
+    utils.save_sess_labels_to_file(os.path.join(out_folder,"val_target_"+suffix+".txt"), labs_te, uttr_delimiter=" ")
+    utils.save_sess_labels_to_file(os.path.join(out_folder,"test_target_"+suffix+".txt"), labs_dev, uttr_delimiter=" ")
 
+
+def get_subset(input, target, size=10):
+    indices = np.random.choice(len(input),size, replace=False)
+    input_sub = []
+    target_sub = []
+    for i in indices:
+        input_sub.append(input[i])
+        target_sub.append(target[i])
+    return input_sub,target_sub
+
+
+def create_subsets(data_folder, out_folder, train_input_file, train_target_file, val_input_file,
+                   val_target_file, test_input_file, test_target_file, train_size=10,val_size=4,test_size=4):
+    train_input = utils.load_file(os.path.join(data_folder, train_input_file))
+    train_target = utils.load_file(os.path.join(data_folder, train_target_file))
+    val_input = utils.load_file(os.path.join(data_folder, val_input_file))
+    val_target = utils.load_file(os.path.join(data_folder, val_target_file))
+    test_input = utils.load_file(os.path.join(data_folder, test_input_file))
+    test_target = utils.load_file(os.path.join(data_folder, test_target_file))
+    print("Train sessions: %d " % len(train_input))
+    print("Train labels: %d " % len(train_target))
+    print("Val sessions: %d " % len(val_input))
+    print("Val labels: %d " % len(val_target))
+    print("Test sessions: %d " % len(test_input))
+    print("Test labels: %d " % len(test_target))
+
+    print("Creating subsets of size (train, val, test) = (%d,%d,%d)"%(train_size,val_size,test_size))
+    train_input_sub, train_target_sub = get_subset(train_input, train_target, size=train_size)
+    val_input_sub, val_target_sub = get_subset(val_input, val_target, size=val_size)
+    test_input_sub, test_target_sub = get_subset(test_input, test_target, size=test_size)
+    print os.path.split(train_input_file)
+    utils.save_file(os.path.join(out_folder, train_input_file.split(".")[0] + "_sub.txt"), train_input_sub)
+    utils.save_file(os.path.join(out_folder, train_target_file.split(".")[0] + "_sub.txt"), train_input_sub)
+    utils.save_file(os.path.join(out_folder, val_input_file.split(".")[0] + "_sub.txt"), val_input_sub)
+    utils.save_file(os.path.join(out_folder, val_target_file.split(".")[0] + "_sub.txt"), val_target_sub)
+    utils.save_file(os.path.join(out_folder, test_input_file.split(".")[0] + "_sub.txt"), test_input_sub)
+    utils.save_file(os.path.join(out_folder, test_target_file.split(".")[0] + "_sub.txt"), test_target_sub)
+    return train_input_sub, train_target_sub, val_input_sub, val_target_sub, test_input_sub, test_target_sub
+
+
+def create_ovr_data(data_folder, train_target_file, val_target_file, test_target_file,classes):
+    train_target = utils.load_file(os.path.join(data_folder, train_target_file))
+    val_target = utils.load_file(os.path.join(data_folder, val_target_file))
+    test_target = utils.load_file(os.path.join(data_folder, test_target_file))
+    for c in classes:
+        train_target_ovr = convert_to_ovr(class_one=c, input_labels=train_target)
+        val_target_ovr = convert_to_ovr(class_one=c, input_labels=val_target)
+        test_target_ovr = convert_to_ovr(class_one=c, input_labels=test_target)
+        utils.save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + train_target_file), train_target_ovr)
+        utils.save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + val_target_file), val_target_ovr)
+        utils.save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + test_target_file), test_target_ovr)
 
 def preprocess_text_data(data_folder, train_input_file, train_target_file, val_input_file,
-                         val_target_file, test_input_file, test_target_file, vocab_file, max_freq, min_freq):
+                         val_target_file, test_input_file, test_target_file, vocab_file, max_freq, min_freq,sessions=True):
 
     # load a list of sessions where each session is a list of utterances
     train_input = utils.load_file(os.path.join(data_folder, train_input_file))
@@ -112,12 +184,19 @@ def preprocess_text_data(data_folder, train_input_file, train_target_file, val_i
     print("Test labels: %d " % len(test_target))
 
     # tokenize utterances within each session on space
-    train_input = tokenize_sessions(train_input)
-    val_input = tokenize_sessions(val_input)
-    test_input = tokenize_sessions(test_input)
+    if sessions:
+        train_input = tokenize_sessions(train_input)
+        val_input = tokenize_sessions(val_input)
+        test_input = tokenize_sessions(test_input)
+    else:
+        train_input = tokenize_utterances(train_input)
+        val_input = tokenize_utterances(val_input)
+        test_input = tokenize_utterances(test_input)
 
     # build vocabulary from train utterances
-    train_input_f = [uttr for sess in train_input for uttr in sess]
+    train_input_f = train_input
+    if sessions:
+        train_input_f = [uttr for sess in train_input for uttr in sess]
     vocab = build_vocabulary(train_input_f, max_freq=max_freq, min_freq=min_freq)
     print("Vocab size: %d " % len(vocab))
 
@@ -171,44 +250,6 @@ def convert_to_ovr(class_one, input_labels):
     return ovr_labels
 
 
-def get_subset(input, target, size=10):
-    indices = np.random.choice(len(input),size, replace=False)
-    input_sub = []
-    target_sub = []
-    for i in indices:
-        input_sub.append(input[i])
-        target_sub.append(target[i])
-    return input_sub,target_sub
-
-
-def create_subsets(data_folder, train_input_file, train_target_file, val_input_file,
-                   val_target_file, test_input_file, test_target_file, train_size=10,val_size=4,test_size=4):
-    train_input = load_file(os.path.join(data_folder, train_input_file))
-    train_target = load_file(os.path.join(data_folder, train_target_file))
-    val_input = load_file(os.path.join(data_folder, val_input_file))
-    val_target = load_file(os.path.join(data_folder, val_target_file))
-    test_input = load_file(os.path.join(data_folder, test_input_file))
-    test_target = load_file(os.path.join(data_folder, test_target_file))
-    print("Train sessions: %d " % len(train_input))
-    print("Train labels: %d " % len(train_target))
-    print("Val sessions: %d " % len(val_input))
-    print("Val labels: %d " % len(val_target))
-    print("Test sessions: %d " % len(test_input))
-    print("Test labels: %d " % len(test_target))
-
-    print("Creating subsets of size (train, val, test) = (%d,%d,%d)"%(train_size,val_size,test_size))
-    train_input_sub, train_target_sub = get_subset(train_input, train_target, size=train_size)
-    val_input_sub, val_target_sub = get_subset(val_input, val_target, size=val_size)
-    test_input_sub, test_target_sub = get_subset(test_input, test_target, size=test_size)
-    save_file(os.path.join(data_folder, "train_input_sess_sub.txt"), train_input_sub)
-    save_file(os.path.join(data_folder, "train_target_sess_sub.txt"), train_target_sub)
-    save_file(os.path.join(data_folder, "val_input_sess_sub.txt"), val_input_sub)
-    save_file(os.path.join(data_folder, "val_target_sess_sub.txt"), val_target_sub)
-    save_file(os.path.join(data_folder, "test_input_sess_sub.txt"), test_input_sub)
-    save_file(os.path.join(data_folder, "test_target_sess_sub.txt"), test_target_sub)
-    return train_input_sub, train_target_sub, val_input_sub, val_target_sub, test_input_sub, test_target_sub
-
-
 def tokenize_sentences(data, delimiter=" "):
     data_tok=[]
     for d in data:
@@ -224,6 +265,13 @@ def tokenize_sessions(sessions, word_delimiter=" ", uttr_delimiter="#"):
             sess_tok.append(uttr.split(word_delimiter))
         sessions_tok.append(sess_tok)
     return sessions_tok
+
+
+def tokenize_utterances(utterances, word_delimiter=" "):
+    utterances_tok = []
+    for uttr in utterances:
+        utterances_tok.append(uttr.split(word_delimiter))
+    return utterances_tok
 
 
 def split_sessions_into_utterances(sessions, delimiter):
@@ -243,16 +291,3 @@ def print_stats(train_input,val_input,test_input):
     avg_sess_len, max_sess, min_sess, avg_uttr_len, max_uttr, min_uttr = avg_sess_uttr_length(test_input)
     print("Test: avg_sess_len = %.3f, max_sess = %d, min_sess = %d, avg_uttr_len = %.3f, max_uttr = %d, min_uttr = %d " % (
         avg_sess_len, max_sess, min_sess,avg_uttr_len, max_uttr, min_uttr))
-
-
-def create_ovr_data(data_folder, train_target_file, val_target_file, test_target_file,classes):
-    train_target = load_file(os.path.join(data_folder, train_target_file))
-    val_target = load_file(os.path.join(data_folder, val_target_file))
-    test_target = load_file(os.path.join(data_folder, test_target_file))
-    for c in classes:
-        train_target_ovr = convert_to_ovr(class_one=c, input_labels=train_target)
-        val_target_ovr = convert_to_ovr(class_one=c, input_labels=val_target)
-        test_target_ovr = convert_to_ovr(class_one=c, input_labels=test_target)
-        save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + train_target_file), train_target_ovr)
-        save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + val_target_file), val_target_ovr)
-        save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + test_target_file), test_target_ovr)

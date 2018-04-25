@@ -106,7 +106,7 @@ def load_file(filepath):
     return data
 
 
-def save_words_to_file(filepath, sessions, uttr_delimiter="#"):
+def save_sess_words_to_file(filepath, sessions, uttr_delimiter="#"):
     with io.open(filepath, 'w', encoding="utf-8") as f:
         newline = ""
         for sess in sessions:
@@ -120,7 +120,15 @@ def save_words_to_file(filepath, sessions, uttr_delimiter="#"):
             newline="\n"
 
 
-def save_labels_to_file(filepath, data, uttr_delimiter="#"):
+def save_to_file(filepath, data):
+    with io.open(filepath, 'w', encoding="utf-8") as f:
+        newline = ""
+        for d in data:
+            f.write(unicode(newline+str(d)))
+            newline="\n"
+
+
+def save_sess_labels_to_file(filepath, data, uttr_delimiter="#"):
     with io.open(filepath, 'w', encoding="utf-8") as f:
         newline = ""
         for d in data:
