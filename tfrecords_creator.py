@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import preprocess
+import model_helper
 
 def sequence_to_tf_example(sequence, labels):
     example = tf.train.SequenceExample()
@@ -130,22 +131,24 @@ def test_tfrecords():
     parse = lambda inp: parse_tfrecord(inp,12624)
     dataset = dataset.map(parse, num_parallel_calls=5)
     # get actual length of session sequence
-    batch_size = 4
+    batch_size = 30
     batched_dataset = dataset.batch(batch_size)
     batched_iter = batched_dataset.make_initializable_iterator()
     # inputs.shape = [batch_size, max_sess_len, max_uttr_len]
     # inputs.shape = [batch_size, max_sess_len]
 
     input = batched_iter.get_next()
+    ss=model_helper.get_tensor_dim(input["features"],0)
 
     with tf.Session() as sess:
         sess.run(tf.tables_initializer())
         sess.run(batched_iter.initializer)
-        next_element = sess.run(input)
+        next_element,ss = sess.run([input,ss])
         print next_element["label"].shape
         print next_element["features"].shape
         print next_element["features"]
         print next_element["label"]
+        print ss
 
 
 

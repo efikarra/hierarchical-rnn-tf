@@ -105,7 +105,7 @@ def train(hparams):
             # save checkpoint. We save the values of the variables of the train graph.
             # train_sess is the session in which the train graph was launched.
             # global_step parameter is optional and is appended to the name of the checkpoint.
-            loaded_train_model.saver.save(train_sess, os.path.join(out_dir, "rnn.ckpt"), global_step=epoch)
+            loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"), global_step=epoch)
 
             print("Results: ")
             val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, input_emb_weights, summary_writer)

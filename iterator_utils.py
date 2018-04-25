@@ -1,6 +1,7 @@
 import collections
 import tensorflow as tf
 import tfrecords_creator
+import model_helper
 
 class BatchedInput(collections.namedtuple("BatchedInput",
                                            ("initializer",
@@ -204,4 +205,4 @@ def get_iterator_flat_bow(dataset, batch_size, random_seed, feature_size, output
                         input=inputs["features"], target=inputs["label"],
                         input_sess_length=None,
                         input_uttr_length=None,
-                        batch_size=tf.size(inputs["features"]))
+                        batch_size=model_helper.get_tensor_dim(inputs["features"],0))

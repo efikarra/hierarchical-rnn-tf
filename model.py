@@ -86,10 +86,10 @@ class BaseModel(object):
         print("Total number of parameters: %d" % total_params)
 
 
-    def output_layer(self, hparams, rnn_outputs):
+    def output_layer(self, hparams, outputs):
         with tf.variable_scope("output_layer"):
             out_layer = tf.layers.Dense(hparams.n_classes, use_bias=False, name="output_layer")
-            logits = out_layer(rnn_outputs)
+            logits = out_layer(outputs)
         return logits
 
 
@@ -129,7 +129,7 @@ class FlatModel(BaseModel):
     def build_network(self, hparams):
         print ("Creating %s graph" % self.mode)
         dtype = tf.float32
-        with tf.variable_scope("rnn_model", dtype=dtype):
+        with tf.variable_scope("flat_model", dtype=dtype):
             input_emb = self.encoder(hparams, self.iterator.input)
             logits = self.output_layer(hparams, input_emb)
             # compute loss
@@ -151,10 +151,12 @@ class FlatModel(BaseModel):
         pass
 
 class FFN(FlatModel):
-
     def encoder(self, hparams, input):
-        input_emb = model_helper.ffn(input, hparams)
-        return input_emb
+        with tf.variable_scope("ffn"):
+            input_emb = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
+                                         uttr_in_to_hid_dropouts=hparams.uttr_in_to_hid_dropout,
+                                         activations=hparams.uttr_activation, mode=self.mode)
+            return input_emb
 
 
 class RNN(FlatModel):
@@ -172,7 +174,7 @@ class RNN(FlatModel):
         # Create embedding layer
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, input)
-        with tf.variable_scope("utterance_rnn") as scope:
+        with tf.variable_scope("rnn") as scope:
             rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
                                                                      hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                                      hparams.uttr_units, hparams.uttr_layers,

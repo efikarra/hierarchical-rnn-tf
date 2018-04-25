@@ -15,10 +15,10 @@ class HModel(model.BaseModel):
         return loss
 
 
-    def output_layer(self, hparams, rnn_outputs):
+    def output_layer(self, hparams, outputs):
         with tf.variable_scope("output_layer"):
             out_layer = tf.layers.Dense(hparams.n_classes, use_bias=hparams.out_bias, name="output_layer")
-            logits = out_layer(rnn_outputs)
+            logits = out_layer(outputs)
         return logits
 
 
@@ -97,7 +97,9 @@ class H_RNN(HModel):
 class H_RNN_FFN(H_RNN):
     """Hierarchical Model with RNN in the session level and FFN in the utterance level."""
     def utterance_encoder(self, hparams, inputs):
-        utterances_embs = model_helper.ffn(inputs, hparams)
+        utterances_embs = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
+                                     uttr_in_to_hid_dropouts=hparams.uttr_in_to_hid_dropout,
+                                     activations=hparams.uttr_activation, mode=self.mode)
         return utterances_embs
 
 

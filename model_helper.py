@@ -61,7 +61,7 @@ def create_eval_model(model_creator, hparams, mode):
     with graph.as_default(), tf.container("eval"):
         input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
         output_file_placeholder=None
-        if hparams.model_architecture=="ffn" or hparams.model_architecture=="h-rnn-ffn":
+        if not hparams.model_architecture=="ffn" and not hparams.model_architecture=="h-rnn-ffn":
             output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
         iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder)
         model = model_creator(hparams, mode, iterator)
@@ -115,11 +115,12 @@ def rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequ
     return rnn_outputs, last_hidden_sate
 
 
-def ffn(inputs, hparams):
+def ffn(inputs, layers, units_list, bias, uttr_in_to_hid_dropouts, activations, mode):
     layer_input = inputs
-    for l in range(hparams.uttr_layers):
-        layer_output = tf.layers.Dense(hparams.uttr_units[l], use_bias=hparams.out_bias, name="output_layer")(layer_input)
-        layer_output = tf.layers.dropout(layer_output, hparams.uttr_in_to_hid_dropout[l])
+    for l in range(layers):
+        in_to_hidden_drop = uttr_in_to_hid_dropouts[l] if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
+        layer_output = tf.layers.Dense(units_list[l], activation=get_activation_func(activations[l]), use_bias=bias)(layer_input)
+        layer_output = tf.nn.dropout(layer_output, keep_prob=(1-in_to_hidden_drop))
         layer_input = layer_output
     return layer_input
 
@@ -164,6 +165,17 @@ def get_initializer(init_op, seed=None, init_weight=None):
     else:
         raise ValueError("Unknown init_op %s" % init_op)
 
+def get_activation_func(act_name):
+    if act_name=="relu":
+        return tf.nn.relu
+    elif act_name=="leaky_relu":
+        return tf.nn.leaky_relu
+    elif act_name=="sigmoid":
+        return tf.nn.sigmoid
+    elif act_name=="softmax":
+        return tf.nn.softmax
+    else:
+        raise ValueError("Unknown value for activation function %s"%act_name)
 
 
 def create_embeddings(vocab_size,emb_size,emb_trainable,emb_pretrain,dtype=tf.float32):
@@ -357,5 +369,5 @@ def get_model_creator(model_architecture):
     return model_creator
 
 
-def get_tensor_dim(self,tensor,time_axis):
+def get_tensor_dim(tensor,time_axis):
     return tensor.shape[time_axis].value or tf.shape(tensor)[time_axis]

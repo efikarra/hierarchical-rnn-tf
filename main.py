@@ -1,7 +1,7 @@
 import argparse
 import tensorflow as tf
 import os
-import sys
+import model_helper
 import train
 import utils
 import evaluation
@@ -81,6 +81,8 @@ def add_arguments(parser):
                         help="last | max | mean. Pooling scheme for session hidden states to represent a session.")
     #ffn
     parser.add_argument("--feature_size", type=int, default=32, help="Number of features if ffn as utterance encoder.")
+    parser.add_argument("--uttr_activation", type=str, default='relu',
+                        help="List of activation functions for each layer of the utterance model.")
     # training
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--num_epochs", type=int, default=10, help="Number of epochs to train.")
@@ -174,6 +176,7 @@ def create_hparams(flags):
         out_bias=flags.out_bias,
         #ffn
         feature_size=flags.feature_size,
+        uttr_activation=flags.uttr_activation,
         # training
         batch_size=flags.batch_size,
         num_epochs=flags.num_epochs,
@@ -215,6 +218,7 @@ def extend_hparams(hparams):
     hparams.sess_units = [int(units) for units in hparams.sess_units.split(",")]
     hparams.uttr_in_to_hid_dropout = [float(d) for d in hparams.uttr_in_to_hid_dropout.split(",")]
     hparams.sess_in_to_hid_dropout = [float(d) for d in hparams.sess_in_to_hid_dropout.split(",")]
+    hparams.uttr_activation = [act_name for act_name in hparams.uttr_activation.split(",")]
     return hparams
 
 
