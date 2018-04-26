@@ -181,7 +181,7 @@ class RNN(FlatModel):
                                                                      hparams.uttr_in_to_hid_dropout,
                                                                      self.iterator.input_uttr_length,
                                                                      hparams.forget_bias, hparams.uttr_time_major,
-                                                                     self.mode)
+                                                                     hparams.uttr_activation, self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
             utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)

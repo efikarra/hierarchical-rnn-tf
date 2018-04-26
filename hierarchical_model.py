@@ -127,7 +127,8 @@ class H_RNN_RNN(H_RNN):
                                                              hparams.uttr_units, hparams.uttr_layers,
                                                              hparams.uttr_in_to_hid_dropout,
                                                              reshape_uttr_length,
-                                                             hparams.forget_bias, hparams.uttr_time_major,self.mode)
+                                                             hparams.forget_bias, hparams.uttr_time_major,
+                                                                     hparams.uttr_activation, self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
             utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)

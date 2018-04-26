@@ -61,24 +61,24 @@ def regroup_text_sessions(sessions,labels,session_size):
 
 
 def flatten_sessions(data_folder, out_folder, suffix):
-    words_tr, labs_tr, words_dev, labs_dev, words_te, labs_te = load_pickle_data(data_folder, "splits_words_tr.pickle",
+    words_tr, labs_tr, words_val, labs_val, words_te, labs_te = load_pickle_data(data_folder, "splits_words_tr.pickle",
                                                                                  "splits_labs_tr.pickle",
                                                                                  "splits_words_dev.pickle",
                                                                                  "splits_labs_dev.pickle",
                                                                                  "splits_words_te.pickle",
                                                                                  "splits_labs_te.pickle")
     words_tr = [" ".join(word) for uttr in words_tr for word in uttr]
-    words_dev = [" ".join(word) for uttr in words_dev for word in uttr]
+    words_val = [" ".join(word) for uttr in words_val for word in uttr]
     words_te = [" ".join(word) for uttr in words_te for word in uttr]
     labs_tr = [str(lab) for uttr in labs_tr for lab in uttr]
-    labs_dev = [str(lab) for uttr in labs_dev for lab in uttr]
+    labs_val = [str(lab) for uttr in labs_val for lab in uttr]
     labs_te = [str(lab) for uttr in labs_te for lab in uttr]
     utils.save_to_file(os.path.join(out_folder,"train_input_"+suffix+".txt"), words_tr)
-    utils.save_to_file(os.path.join(out_folder,"val_input_"+suffix+".txt"), words_te)
-    utils.save_to_file(os.path.join(out_folder,"test_input_"+suffix+".txt"), words_dev)
-    utils.save_to_file(os.path.join(out_folder,"train_target_"+suffix+".txt"), labs_tr)
-    utils.save_to_file(os.path.join(out_folder,"val_target_"+suffix+".txt"), labs_te)
-    utils.save_to_file(os.path.join(out_folder,"test_target_"+suffix+".txt"), labs_dev)
+    utils.save_to_file(os.path.join(out_folder, "train_target_" + suffix + ".txt"), labs_tr)
+    utils.save_to_file(os.path.join(out_folder,"val_input_"+suffix+".txt"), words_val)
+    utils.save_to_file(os.path.join(out_folder,"val_target_"+suffix+".txt"), labs_val)
+    utils.save_to_file(os.path.join(out_folder,"test_input_"+suffix+".txt"), words_te)
+    utils.save_to_file(os.path.join(out_folder,"test_target_"+suffix+".txt"), labs_te)
 
 
 

@@ -83,14 +83,15 @@ def create_infer_model(model_creator, hparams, mode):
 
 
 def rnn_network(inputs, dtype, rnn_type,
-                unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias, time_major, mode):
+                unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias, time_major,
+                activations, mode):
     if rnn_type == 'uni':
         rnn_outputs, last_hidden_sate = rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout,
-                                                 sequence_length, forget_bias, time_major,mode)
+                                                 sequence_length, forget_bias, time_major, activations, mode)
     elif rnn_type == 'bi':
-        num_bi_layers = int(num_layers * 2)
-        rnn_outputs, last_hidden_sate = bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers,
-                                                               in_to_hid_dropout, sequence_length, forget_bias, time_major, mode)
+        rnn_outputs, last_hidden_sate = bidirectional_rnn(inputs, dtype, unit_type, num_units, num_layers,
+                                                               in_to_hid_dropout, sequence_length, forget_bias,
+                                                          time_major, activations, mode)
         last_hidden_sate = tf.concat(last_hidden_sate, -1)
     else:
         raise ValueError("Unknown encoder_type %s" % rnn_type)
@@ -98,9 +99,9 @@ def rnn_network(inputs, dtype, rnn_type,
 
 
 def rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias,
-        time_major, mode):
+        time_major, activations, mode):
     cell = create_rnn_cell(unit_type, num_units, num_layers,
-                                        forget_bias, in_to_hid_dropout, mode)
+                                        forget_bias, in_to_hid_dropout, mode, activations)
     # encoder_state --> a Tensor of shape `[batch_size, cell.state_size]` or a list of such Tensors for many layers
     # the sequence_length achieves 1) performance 2) correctness. The RNN calculations stop when the true seq.
     # length is reached for each sequence. All outputs (hidden states) past the true seq length are set to 0.
@@ -127,13 +128,13 @@ def ffn(inputs, layers, units_list, bias, uttr_in_to_hid_dropouts, activations, 
 
 
 def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, in_to_hid_dropout,
-                      sequence_length, forget_bias, time_major, mode):
+                      sequence_length, forget_bias, time_major, activations, mode):
     # Construct forward and backward cells.
     #each one has num_bi_layers layers. Each layer has num_units.
     fw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                           forget_bias, in_to_hid_dropout, mode)
+                                           forget_bias, in_to_hid_dropout, mode, activations)
     bw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                           forget_bias, in_to_hid_dropout, mode)
+                                           forget_bias, in_to_hid_dropout, mode, activations)
 
     # initial_state_fw, initial_state_bw are initialized to 0
     # bi_outputs is a tuple (output_fw, output_bw) containing the forward and the backward rnn output Tensor
@@ -174,6 +175,8 @@ def get_activation_func(act_name):
         return tf.nn.sigmoid
     elif act_name=="softmax":
         return tf.nn.softmax
+    elif act_name=="tanh":
+        return tf.nn.tanh
     else:
         raise ValueError("Unknown value for activation function %s"%act_name)
 
@@ -189,18 +192,18 @@ def create_embeddings(vocab_size,emb_size,emb_trainable,emb_pretrain,dtype=tf.fl
         return embedding, emb_init, emb_placeholder
 
 
-def _single_cell(unit_type, num_units, forget_bias, in_to_hidden_dropout):
+def _single_cell(unit_type, num_units, forget_bias, in_to_hidden_dropout, activation):
 
     # Cell Type
     if unit_type == "lstm":
-        single_cell = tf.contrib.rnn.BasicLSTMCell(num_units,forget_bias=forget_bias)
+        single_cell = tf.contrib.rnn.BasicLSTMCell(num_units, forget_bias=forget_bias, activation=activation)
     elif unit_type == "gru":
-        single_cell = tf.contrib.rnn.GRUCell(num_units)
+        single_cell = tf.contrib.rnn.GRUCell(num_units, activation=activation)
     elif unit_type == "layer_norm_lstm":
-        single_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(num_units,forget_bias=forget_bias,layer_norm=True)
+        single_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(num_units, forget_bias=forget_bias, layer_norm=True, activation=activation)
     elif unit_type == "rnn":
       single_cell = tf.contrib.rnn.BasicRNNCell(
-          num_units)
+          num_units,activation=activation)
     else:
         raise ValueError("Unknown unit type %s!" % unit_type)
     # Dropout (= 1 - keep_prob)
@@ -210,7 +213,7 @@ def _single_cell(unit_type, num_units, forget_bias, in_to_hidden_dropout):
     return single_cell
 
 
-def _cell_list(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode):
+def _cell_list(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode, activations):
   """Create a list of RNN cells."""
   cell_list = []
   for i in range(num_layers):
@@ -219,18 +222,20 @@ def _cell_list(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropo
         unit_type=unit_type,
         num_units=num_units[i],
         forget_bias=forget_bias,
-        in_to_hidden_dropout=in_to_hidden_drop)
+        in_to_hidden_dropout=in_to_hidden_drop,
+        activation = activations[i])
     cell_list.append(single_cell)
   return cell_list
 
 
-def create_rnn_cell(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode):
+def create_rnn_cell(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode, activations):
   cell_list = _cell_list(unit_type=unit_type,
                          num_units=num_units,
                          num_layers=num_layers,
                          forget_bias=forget_bias,
                          in_to_hidden_dropout=in_to_hidden_dropout,
-                         mode=mode)
+                         mode=mode,
+                         activations=[get_activation_func(act_name) for act_name in activations])
 
   if len(cell_list) == 1:  # Single layer.
     return cell_list[0]

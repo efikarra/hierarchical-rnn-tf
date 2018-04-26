@@ -27,21 +27,8 @@ def predict(model, sess, iterator, iterator_feed_dict):
 
 def evaluate(hparams, ckpt):
     model_creator = model_helper.get_model_creator(hparams.model_architecture)
-
-    #dirty! change this! pisk a common data format for both models.
-    if hparams.val_target_path or hparams.model_architecture=="h-ffn-rnn":
-        print("Starting evaluation and predictions:")
-        eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL)
-        eval_sess = tf.Session(config=utils.get_config_proto(), graph=eval_model.graph)
-        with eval_model.graph.as_default():
-            loaded_eval_model = model_helper.load_model(eval_model.model, eval_sess, "evaluation", ckpt)
-        iterator_feed_dict={
-            eval_model.input_file_placeholder: hparams.eval_input_path,
-            eval_model.output_file_placeholder: hparams.eval_target_path
-        }
-        eval_loss, eval_accuracy, predictions = eval_and_precit(loaded_eval_model, eval_sess, eval_model.iterator, iterator_feed_dict)
-        print("Eval loss: %.3f, Eval accuracy: %.3f"%(eval_loss,eval_accuracy))
-    else:
+    #dirty! change this! pick a common data format for both models.
+    if not hparams.val_target_path and not hparams.model_architecture=="h-ffn-rnn" and not hparams.model_architecture=="ffn":
         print("Starting predictions:")
         prediction_model = model_helper.create_infer_model(model_creator, hparams, tf.contrib.learn.ModeKeys.INFER)
         prediction_sess = tf.Session(config=utils.get_config_proto(), graph=prediction_model.graph)
@@ -51,6 +38,24 @@ def evaluate(hparams, ckpt):
                 prediction_model.input_file_placeholder: hparams.eval_input_path,
             }
         predictions=predict(loaded_prediction_model, prediction_sess, prediction_model.iterator, iterator_feed_dict)
+    else:
+        print("Starting evaluation and predictions:")
+        eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL)
+        eval_sess = tf.Session(config=utils.get_config_proto(), graph=eval_model.graph)
+        with eval_model.graph.as_default():
+            loaded_eval_model = model_helper.load_model(eval_model.model, eval_sess, "evaluation", ckpt)
+        if hparams.val_target_path:
+            iterator_feed_dict = {
+                eval_model.input_file_placeholder: hparams.eval_input_path,
+                eval_model.output_file_placeholder: hparams.eval_target_path
+            }
+        else:
+            iterator_feed_dict = {
+                eval_model.input_file_placeholder: hparams.eval_input_path,
+            }
+        eval_loss, eval_accuracy, predictions = eval_and_precit(loaded_eval_model, eval_sess, eval_model.iterator,
+                                                                iterator_feed_dict)
+        print("Eval loss: %.3f, Eval accuracy: %.3f" % (eval_loss, eval_accuracy))
     print("Saving predictions:")
     np.savetxt(os.path.join(hparams.eval_output_folder, hparams.predictions_filename), predictions)
     # save_labels(predictions["classes"], os.path.join(hparams.eval_output_folder, "classes"))

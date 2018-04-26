@@ -49,3 +49,6 @@ def check_vocab(vocab_file, out_dir, unk=None, pad=None):
 
 def create_vocab_table(vocab_file):
     return tf.contrib.lookup.index_table_from_file(vocab_file, default_value=UNK_ID)
+
+def create_inverse_vocab_table(vocab_file, unk=UNK):
+    return tf.contrib.lookup.index_to_string_table_from_file(vocab_file, default_value=unk)
