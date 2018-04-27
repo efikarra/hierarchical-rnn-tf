@@ -26,28 +26,27 @@ class MeanPooling(Pooling):
 
 
 class AttentionPooling(Pooling):
-    def __init__(self, inputs, return_alphas=True, mask=None):
+    def __init__(self, inputs, mask=None):
         Pooling.__init__(self, inputs, mask)
-        self.return_alphas=return_alphas
 
     def _create(self, ):
-        return attention(self.inputs, self.mask, self.return_alphas)
+        output, self.attn_alphas = attention(self.inputs, self.mask)
+        return output
 
 
 class AttentionWithContextPooling(Pooling):
 
-    def __init__(self, inputs, attention_size, return_alphas=True, mask=None):
+    def __init__(self, inputs, attention_size, mask=None):
         Pooling.__init__(self, inputs, mask)
         self.attention_size=attention_size
-        self.return_alphas=return_alphas
 
 
     def _create(self):
-        output,self.attn_alphas = attention_with_context(self.inputs, self.attention_size, self.mask, self.return_alphas)
+        output,self.attn_alphas = attention_with_context(self.inputs, self.attention_size, self.mask)
         return output
 
 
-def attention(inputs, mask, return_alphas=True):
+def attention(inputs, mask):
     hidden_size = inputs.shape[2]
     w_omega = tf.get_variable("w_omega", shape=(hidden_size, ))
     b_omega = tf.get_variable("b_omega", shape=())
@@ -57,13 +56,10 @@ def attention(inputs, mask, return_alphas=True):
     alphas = tf.nn.softmax(v, name="alphas")
     output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1) * tf.expand_dims(mask,-1), 1)
 
-    if not return_alphas:
-        return output
-    else:
-        return output, alphas
+    return output, alphas
 
 
-def attention_with_context(inputs, attention_size, mask, return_alphas=True):
+def attention_with_context(inputs, attention_size, mask):
     hidden_size = inputs.shape[2]
     w_omega = tf.get_variable("w_omega", shape=(hidden_size, attention_size))
     b_omega = tf.get_variable("b_omega", shape=(attention_size, ))
@@ -75,7 +71,4 @@ def attention_with_context(inputs, attention_size, mask, return_alphas=True):
     alphas = tf.nn.softmax(vu, name="alphas")
     output = tf.reduce_sum(inputs * tf.expand_dims(alphas,-1) *tf.expand_dims(mask,-1), 1)
 
-    if not return_alphas:
-        return output
-    else:
-        return output, alphas
+    return output, alphas

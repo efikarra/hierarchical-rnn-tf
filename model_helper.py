@@ -164,15 +164,15 @@ def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state, sequence_length
     elif pooling_method=='mean':
         output_creator = pooling.MeanPooling(rnn_outputs,mask)
     elif pooling_method == 'attn':
-        output_creator = pooling.AttentionPooling(inputs=rnn_outputs, return_alphas=True, mask=mask)
+        output_creator = pooling.AttentionPooling(inputs=rnn_outputs,mask=mask)
     elif pooling_method == 'attn_context':
         output_creator = pooling.AttentionWithContextPooling(inputs=rnn_outputs, attention_size=attention_size,
-                                                             return_alphas=True, mask=mask)
+                                                            mask=mask)
     else:
         raise ValueError("Unknown Pooling method.")
     rnn_output = output_creator()
     attn_alphas = None
-    if pooling_method == 'attn_context':
+    if pooling_method == 'attn_context' or pooling_method =='attn':
         attn_alphas=output_creator.attn_alphas
     return rnn_output, attn_alphas
 
