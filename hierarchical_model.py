@@ -9,18 +9,14 @@ class HModel(model.BaseModel):
     def compute_loss(self, logits):
         target_output = self.iterator.target
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target_output, logits=logits)
-        target_weights = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value, dtype=logits.dtype)
+        target_weights = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value,
+                                          dtype=logits.dtype)
         loss = tf.reduce_mean(crossent * target_weights)
-               #/ tf.to_float(self.batch_size)
+        # / tf.to_float(self.batch_size)
         return loss
 
-
-    def output_layer(self, hparams, outputs):
-        with tf.variable_scope("output_layer"):
-            out_layer = tf.layers.Dense(hparams.n_classes, use_bias=hparams.out_bias, name="output_layer")
-            logits = out_layer(outputs)
-        return logits
-
+    def compute_predictions(self, logits):
+        return tf.nn.softmax(self.logits)
 
 
     def build_network(self, hparams):
@@ -81,6 +77,7 @@ class HModel(model.BaseModel):
         return sess.run(self.predictions)
 
 
+
 class H_RNN(HModel):
     """Hierarchical Model with RNN in the session level"""
     def session_encoder(self, hparams, utterances_embs):
@@ -131,7 +128,7 @@ class H_RNN_RNN(H_RNN):
                                                                      hparams.uttr_activation, self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
-            utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
+            utterances_embs, self.attn_alphas  = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
         return utterances_embs
 
 
@@ -152,6 +149,50 @@ class H_RNN_CNN(H_RNN):
 
     def cnn(self, inputs, dtype, hparams):
         pass
+
+
+
+class H_RNN_FFN_CRF(H_RNN_FFN):
+
+    def compute_loss(self, logits):
+        target_output = self.iterator.target
+        log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
+        return tf.reduce_mean(-log_likelihood)
+
+    def compute_predictions(self, logits):
+        viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
+                                                                    self.iterator.input_sess_length)
+        predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
+        return predictions
+
+
+class H_RNN_RNN_CRF(H_RNN_RNN):
+
+    def compute_loss(self, logits):
+        target_output = self.iterator.target
+        log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
+        return tf.reduce_mean(-log_likelihood)
+
+    def compute_predictions(self, logits):
+        viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
+                                                                    self.iterator.input_sess_length)
+        predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
+        return predictions
+
+
+class H_RNN_RNN_CNN(H_RNN_CNN):
+
+    def compute_loss(self, logits):
+        target_output = self.iterator.target
+        log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
+        return tf.reduce_mean(-log_likelihood)
+
+    def compute_predictions(self, logits):
+        viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
+                                                                    self.iterator.input_sess_length)
+        predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
+        return predictions
+
 
 
 

@@ -154,6 +154,29 @@ def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, in_to_
 
 
 
+def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state, sequence_length, attention_size=32):
+    mask = tf.sequence_mask(sequence_length, maxlen=rnn_outputs.shape[1].value,
+                                      dtype=rnn_outputs.dtype)
+
+    if pooling_method=='last':
+        if isinstance(rnn_last_state,tf.contrib.rnn.LSTMStateTuple): return rnn_last_state.h
+        else: return rnn_last_state
+    elif pooling_method=='mean':
+        output_creator = pooling.MeanPooling(rnn_outputs,mask)
+    elif pooling_method == 'attn':
+        output_creator = pooling.AttentionPooling(inputs=rnn_outputs, return_alphas=True, mask=mask)
+    elif pooling_method == 'attn_context':
+        output_creator = pooling.AttentionWithContextPooling(inputs=rnn_outputs, attention_size=attention_size,
+                                                             return_alphas=True, mask=mask)
+    else:
+        raise ValueError("Unknown Pooling method.")
+    rnn_output = output_creator()
+    attn_alphas = None
+    if pooling_method == 'attn_context':
+        attn_alphas=output_creator.attn_alphas
+    return rnn_output, attn_alphas
+
+
 def get_initializer(init_op, seed=None, init_weight=None):
     """Create an initializer. init_weight is only for uniform."""
     if init_op == "uniform":
@@ -242,19 +265,6 @@ def create_rnn_cell(unit_type, num_units, num_layers, forget_bias, in_to_hidden_
   else:  # Multi layers
     return tf.contrib.rnn.MultiRNNCell(cell_list)
 
-
-def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state):
-    if pooling_method=='last':
-        if isinstance(rnn_last_state,tf.contrib.rnn.LSTMStateTuple): return rnn_last_state.h
-        else: return rnn_last_state
-    elif pooling_method=='mean':
-        output_creator = pooling.MeanPooling(rnn_outputs)
-    elif pooling_method == 'attention':
-        output_creator = pooling.AttentionPooling(rnn_outputs)
-    else:
-        raise ValueError("Unknown Pooling method.")
-    rnn_output = output_creator()
-    return rnn_output
 
 
 def gradient_clip(gradients, max_gradient_norm):

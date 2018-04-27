@@ -14,15 +14,17 @@ class BaseModel(object):
         tf.get_variable_scope().set_initializer(initializer)
 
         # build graph of main rnn model
-        res = self.build_network(hparams)
+        self.logits, loss = self.build_network(hparams)
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
-            self.train_loss = res[1]
+            self.train_loss = loss
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
-            self.eval_loss = res[1]
-        if self.mode != tf.contrib.learn.ModeKeys.TRAIN:
-            # Generate predictions (for INFER and EVAL mode)
-            self.logits = res[0]
-            self.predictions = tf.nn.softmax(self.logits)
+            self.eval_loss = loss
+        self.predictions = self.compute_predictions(self.logits)
+        if self.mode != tf.contrib.learn.ModeKeys.INFER:
+            correct_pred = tf.equal(tf.argmax(self.predictions, len(self.logits.get_shape())-1),
+                                    tf.cast(self.iterator.target, tf.int64))
+            self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+
         ## Learning rate
         print("  start_decay_step=%d, learning_rate=%g, decay_steps %d,"
               " decay_factor %g" % (hparams.start_decay_step, hparams.learning_rate,
@@ -67,11 +69,6 @@ class BaseModel(object):
                                                       tf.summary.scalar("train_loss",
                                                                         self.train_loss), ] + grad_norm_summary
                                                   )
-        if self.mode != tf.contrib.learn.ModeKeys.INFER:
-            self.logits = res[0]
-            correct_pred = tf.equal(tf.argmax(tf.nn.softmax(self.logits), len(self.logits.get_shape())-1),
-                                    tf.cast(self.iterator.target, tf.int64))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
         # Saver. As argument, we give the variables that are going to be saved and restored.
         # The Saver op will save the variables of the graph within it is defined. All graphs (train/eval/predict) have
         # have a Saver operator.
@@ -120,6 +117,10 @@ class BaseModel(object):
         pass
 
     @abc.abstractmethod
+    def compute_predictions(self, logits):
+        pass
+
+    @abc.abstractmethod
     def compute_loss(self, logits):
         pass
 
@@ -146,9 +147,14 @@ class FlatModel(BaseModel):
         loss = tf.reduce_mean(crossent)
         return loss
 
+    def compute_predictions(self, logits):
+        return tf.nn.softmax(self.logits)
+
     @abc.abstractmethod
     def encoder(self, hparams, input):
         pass
+
+
 
 class FFN(FlatModel):
     def encoder(self, hparams, input):
@@ -181,11 +187,10 @@ class RNN(FlatModel):
                                                                      hparams.uttr_in_to_hid_dropout,
                                                                      self.iterator.input_uttr_length,
                                                                      hparams.forget_bias, hparams.uttr_time_major,
-                                                                     hparams.activations, self.mode)
+                                                                     hparams.uttr_activation, self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
-            utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
+            utterances_embs,self.attn_alphas = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate,
+                                                           self.iterator.input_uttr_length, hparams.uttr_attention_size)
         return utterances_embs
-
-
 

@@ -76,9 +76,8 @@ def add_arguments(parser):
     parser.add_argument('--sess_unit_type', type=str, default="rnn",
                         help="rnn | lstm | gru.")
     parser.add_argument('--uttr_pooling', type=str, default="last",
-                        help="last | max | mean. Pooling scheme for utterance hidden states to represent an utterance.")
-    parser.add_argument('--sess_pooling', type=str, default="last",
-                        help="last | max | mean. Pooling scheme for session hidden states to represent a session.")
+                        help="last | mean | attn | attn_context . Pooling scheme for utterance hidden states to represent an utterance.")
+    parser.add_argument("--uttr_attention_size", type=int, default=32, help="Attention size if attention with context is used in the utterance level.")
     #ffn
     parser.add_argument("--feature_size", type=int, default=32, help="Number of features if ffn as utterance encoder.")
     parser.add_argument("--uttr_activation", type=str, default='relu',
@@ -172,7 +171,7 @@ def create_hparams(flags):
         uttr_unit_type=flags.uttr_unit_type,
         sess_unit_type=flags.sess_unit_type,
         uttr_pooling=flags.uttr_pooling,
-        sess_pooling=flags.sess_pooling,
+        uttr_attention_size=flags.uttr_attention_size,
         out_bias=flags.out_bias,
         #ffn
         feature_size=flags.feature_size,
