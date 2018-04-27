@@ -49,11 +49,16 @@ def test_text_data(inputpath,outputpath,vocab_path,out_dir):
         sess.run(tf.tables_initializer())
         sess.run(iterator.initializer)
         input,target,input_uttr_length,input_words=sess.run([iterator.input,iterator.target,iterator.input_uttr_length,input_words])
-        print input.shape
-        for uttr in input_words:
-            print " ".join(uttr)
-        print target
-        print input_uttr_length
+        while True:
+            try:
+                print input.shape
+                for uttr in input_words:
+                    print " ".join(uttr)
+                print target
+                print input_uttr_length
+            except tf.errors.OutOfRangeError:
+                print("end of dataset")
+                break
 
 
 if __name__=="__main__":
