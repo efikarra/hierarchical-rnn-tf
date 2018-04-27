@@ -61,10 +61,9 @@ def test_text_data(inputpath,outputpath,vocab_path,out_dir):
         while True:
             try:
                 emb=sess.run(emb_inp)
-                print(emb)
             except tf.errors.OutOfRangeError:
                 print("end of dataset")
-                break
+                sess.run(iterator.initializer)
 
 
 if __name__=="__main__":

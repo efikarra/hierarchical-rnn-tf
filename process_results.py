@@ -81,7 +81,10 @@ def main():
     process_results(params)
 
 if __name__ == '__main__':
-    main()
+    params = argparse.Namespace()
+    params.preds_file = "experiments/eval_output/predictions.txt"
+    params.targets_file = "experiments/data/test_target_uttr.txt"
+    process_results(params)
 
 
 
