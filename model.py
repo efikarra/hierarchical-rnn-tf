@@ -52,28 +52,21 @@ class BaseModel(object):
             # compute the gradients of train_loss w.r.t to the model trainable parameters.
             # if colocate_gradients_with_ops is true, the gradients will be computed in the same gpu/cpu device with the
             # original (forward-pass) operator
-            # gradients = tf.gradients(self.train_loss, params,
-            #                          colocate_gradients_with_ops=hparams.colocate_gradients_with_ops)
-            # # clip gradients below a threshold to avoid explosion
-            # clipped_grads, grad_norm_summary, grad_norm = model_helper.gradient_clip(gradients,
-            #                                                                          max_gradient_norm=hparams.max_gradient_norm)
-            # self.grad_norm = grad_norm
-            # # ask the optimizer to apply the processed gradients. We give as argument a list of pairs (gradient,variable).
-            # self.update = opt.apply_gradients(
-            #     zip(clipped_grads, params), global_step=self.global_step
-            # )
-            self.update = opt.minimize(self.train_loss, global_step=self.global_step)
-            # self.train_summary = tf.summary.merge([
-            #                                           tf.summary.scalar("lr", self.learning_rate),
-            #                                           tf.summary.scalar("train_loss",
-            #                                                             self.train_loss), ] + grad_norm_summary
-            #                                       )
+            gradients = tf.gradients(self.train_loss, params,
+                                     colocate_gradients_with_ops=hparams.colocate_gradients_with_ops)
+            # clip gradients below a threshold to avoid explosion
+            clipped_grads, grad_norm_summary, grad_norm = model_helper.gradient_clip(gradients,
+                                                                                     max_gradient_norm=hparams.max_gradient_norm)
+            self.grad_norm = grad_norm
+            # ask the optimizer to apply the processed gradients. We give as argument a list of pairs (gradient,variable).
+            self.update = opt.apply_gradients(
+                zip(clipped_grads, params), global_step=self.global_step
+            )
             self.train_summary = tf.summary.merge([
                                                       tf.summary.scalar("lr", self.learning_rate),
                                                       tf.summary.scalar("train_loss",
-                                                                        self.train_loss), ]
+                                                                        self.train_loss), ] + grad_norm_summary
                                                   )
-
         if self.mode != tf.contrib.learn.ModeKeys.INFER:
             self.logits = res[0]
             correct_pred = tf.equal(tf.argmax(tf.nn.softmax(self.logits), len(self.logits.get_shape())-1),
@@ -188,7 +181,7 @@ class RNN(FlatModel):
                                                                      hparams.uttr_in_to_hid_dropout,
                                                                      self.iterator.input_uttr_length,
                                                                      hparams.forget_bias, hparams.uttr_time_major,
-                                                                     hparams.uttr_activation, self.mode)
+                                                                     hparamsself.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
             utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
