@@ -36,6 +36,7 @@ def test_tfrecords(filepath):
 
 
 def test_text_data(inputpath,outputpath,vocab_path,out_dir):
+    import model_helper
     input_dataset = tf.contrib.data.TextLineDataset(inputpath)
     output_dataset = tf.contrib.data.TextLineDataset(outputpath)
     vocab_size, vocab_path = vocab_utils.check_vocab(vocab_path, out_dir,
@@ -45,17 +46,22 @@ def test_text_data(inputpath,outputpath,vocab_path,out_dir):
     iterator = iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table, batch_size=32, random_seed=None, pad="<pad>",
                               output_buffer_size=None, word_delimiter=" ")
     input_words = reverse_input_vocab_table.lookup(tf.to_int64(iterator.input))
+    input_embedding, input_emb_init, input_emb_placeholder = model_helper.create_embeddings \
+        (vocab_size=vocab_size,
+         emb_size=100,
+         emb_trainable=True,
+         emb_pretrain=False)
+    emb_inp = tf.nn.embedding_lookup(input_embedding, iterator.input)
     with tf.Session() as sess:
         sess.run(tf.tables_initializer())
+        sess.run(tf.local_variables_initializer())
+        sess.run(tf.global_variables_initializer())
         sess.run(iterator.initializer)
-        input,target,input_uttr_length,input_words=sess.run([iterator.input,iterator.target,iterator.input_uttr_length,input_words])
+        # input,target,input_uttr_length,input_words=sess.run([iterator.input,iterator.target,iterator.input_uttr_length,input_words])
         while True:
             try:
-                print input.shape
-                for uttr in input_words:
-                    print " ".join(uttr)
-                print target
-                print input_uttr_length
+                emb=sess.run(emb_inp)
+                print(emb)
             except tf.errors.OutOfRangeError:
                 print("end of dataset")
                 break
