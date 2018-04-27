@@ -174,14 +174,14 @@ class RNN(FlatModel):
         # Create embedding layer
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, input)
-        with tf.variable_scope("rnn") as scope:
+        with tf.variable_scope("utterance_rnn") as scope:
             rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
                                                                      hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                                      hparams.uttr_units, hparams.uttr_layers,
                                                                      hparams.uttr_in_to_hid_dropout,
                                                                      self.iterator.input_uttr_length,
                                                                      hparams.forget_bias, hparams.uttr_time_major,
-                                                                     hparamsself.mode)
+                                                                     hparams.activations, self.mode)
             # utterances_embs.shape = [batch_size*num_utterances, uttr_units] or
             # [batch_size*num_utterances, 2*uttr_units]
             utterances_embs = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs, last_hidden_sate)
