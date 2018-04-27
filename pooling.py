@@ -1,6 +1,5 @@
 import tensorflow as tf
 import abc
-import model_helper
 
 class Pooling(object):
     def __init__(self, inputs, mask=None):
@@ -52,6 +51,7 @@ def attention(inputs, mask):
     b_omega = tf.get_variable("b_omega", shape=())
     with tf.name_scope('attention'):
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
+        v.set_shape((inputs.shape[0], inputs.shape[1], 1))
 
     alphas = tf.nn.softmax(v, name="alphas")
     output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1) * tf.expand_dims(mask,-1), 1)
@@ -66,8 +66,10 @@ def attention_with_context(inputs, attention_size, mask):
     u_omega = tf.get_variable("u_omega", shape=(attention_size, ))
     with tf.name_scope('attention'):
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
+        v.set_shape((inputs.shape[0],inputs.shape[1],attention_size))
 
     vu = tf.tensordot(v, u_omega, axes=1,name="vu")
+    vu.set_shape((inputs.shape[0], inputs.shape[1]))
     alphas = tf.nn.softmax(vu, name="alphas")
     output = tf.reduce_sum(inputs * tf.expand_dims(alphas,-1) *tf.expand_dims(mask,-1), 1)
 
