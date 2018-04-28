@@ -157,10 +157,10 @@ def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, in_to_
 def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state, sequence_length, attention_size=32):
     mask = tf.sequence_mask(sequence_length, maxlen=rnn_outputs.shape[1].value,
                                       dtype=rnn_outputs.dtype)
-
+    attn_alphas = None
     if pooling_method=='last':
-        if isinstance(rnn_last_state,tf.contrib.rnn.LSTMStateTuple): return rnn_last_state.h
-        else: return rnn_last_state
+        if isinstance(rnn_last_state,tf.contrib.rnn.LSTMStateTuple): return rnn_last_state.h,attn_alphas
+        else: return rnn_last_state,attn_alphas
     elif pooling_method=='mean':
         output_creator = pooling.MeanPooling(rnn_outputs,mask)
     elif pooling_method == 'attn':
@@ -171,7 +171,6 @@ def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state, sequence_length
     else:
         raise ValueError("Unknown Pooling method.")
     rnn_output = output_creator()
-    attn_alphas = None
     if pooling_method == 'attn_context' or pooling_method =='attn':
         attn_alphas=output_creator.attn_alphas
     return rnn_output, attn_alphas
