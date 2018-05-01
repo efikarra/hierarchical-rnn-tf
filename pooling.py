@@ -47,11 +47,11 @@ class AttentionWithContextPooling(Pooling):
 
 def attention(inputs, mask):
     hidden_size = inputs.shape[2]
-    with tf.variable_scope('attention'):
-        w_omega = tf.get_variable("w_omega", shape=(hidden_size,))
-        b_omega = tf.get_variable("b_omega", shape=())
+    w_omega = tf.get_variable("w_omega", shape=(hidden_size, ))
+    b_omega = tf.get_variable("b_omega", shape=())
+    with tf.name_scope('attention'):
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
-        v.set_shape((inputs.shape[0], inputs.shape[1]))
+        v.set_shape((inputs.shape[0], inputs.shape[1], 1))
 
     alphas = tf.nn.softmax(v, name="alphas")
     output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1) * tf.expand_dims(mask,-1), 1)
@@ -61,10 +61,10 @@ def attention(inputs, mask):
 
 def attention_with_context(inputs, attention_size, mask):
     hidden_size = inputs.shape[2]
-    with tf.variable_scope('ctx_attention'):
-        w_omega = tf.get_variable("w_omega", shape=(hidden_size, attention_size))
-        b_omega = tf.get_variable("b_omega", shape=(attention_size,))
-        u_omega = tf.get_variable("u_omega", shape=(attention_size,))
+    w_omega = tf.get_variable("w_omega", shape=(hidden_size, attention_size))
+    b_omega = tf.get_variable("b_omega", shape=(attention_size, ))
+    u_omega = tf.get_variable("u_omega", shape=(attention_size, ))
+    with tf.name_scope('attention'):
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
         v.set_shape((inputs.shape[0],inputs.shape[1],attention_size))
 

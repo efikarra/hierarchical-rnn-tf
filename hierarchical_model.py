@@ -95,7 +95,7 @@ class H_RNN(HModel):
 class H_RNN_FFN(H_RNN):
     """Hierarchical Model with RNN in the session level and FFN in the utterance level."""
     def utterance_encoder(self, hparams, inputs):
-        utterances_embs = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
+        utterances_embs = model_helper.ffn(self.iterator.input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
                                      uttr_in_to_hid_dropouts=hparams.uttr_in_to_hid_dropout,
                                      activations=hparams.uttr_activation, mode=self.mode)
         return utterances_embs
