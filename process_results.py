@@ -82,7 +82,7 @@ def main():
 
 if __name__ == '__main__':
     params = argparse.Namespace()
-    params.preds_file = "experiments/eval_output/ffn/predictions_ffn.txt"
+    params.preds_file = "experiments/eval_output/rnn/precitions_rnn.txt"
     params.targets_file = "experiments/data/test_target_uttr.txt"
     process_results(params)
 

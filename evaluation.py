@@ -40,7 +40,7 @@ def evaluate(hparams, ckpt):
         predictions=predict(loaded_prediction_model, prediction_sess, prediction_model.iterator, iterator_feed_dict)
     else:
         print("Starting evaluation and predictions:")
-        eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL)
+        eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL, shuffle=False)
         eval_sess = tf.Session(config=utils.get_config_proto(), graph=eval_model.graph)
         with eval_model.graph.as_default():
             loaded_eval_model = model_helper.load_model(eval_model.model, eval_sess, "evaluation", ckpt)
