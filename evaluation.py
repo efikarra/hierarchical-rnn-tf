@@ -58,6 +58,8 @@ def evaluate(hparams, ckpt):
         print("Eval loss: %.3f, Eval accuracy: %.3f" % (eval_loss, eval_accuracy))
     print("Saving predictions:")
     np.savetxt(os.path.join(hparams.eval_output_folder, hparams.predictions_filename), predictions)
+    import cPickle
+    cPickle.dump(predictions,open(hparams.predictions_filename.split(".")[0]+".pickle","wb"))
     # save_labels(predictions["classes"], os.path.join(hparams.eval_output_folder, "classes"))
     # save_probabilities(predictions["probabilities"], os.path.join(hparams.eval_output_folder, "probabilities"))
 
