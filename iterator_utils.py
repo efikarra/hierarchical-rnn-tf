@@ -14,47 +14,16 @@ class BatchedInput(collections.namedtuple("BatchedInput",
 
 
 
-def get_iterator_hierarchical_infer(input_dataset, input_vocab_table, batch_size, pad,
-                            uttr_delimiter="#", word_delimiter=" "):
-    pad_id = tf.cast(input_vocab_table.lookup(tf.constant(pad)),tf.int32)
-
-    input_dataset = input_dataset.map(lambda inp: tf.sparse_tensor_to_dense(tf.string_split(tf.string_split([inp],
-                                                                                                            delimiter=uttr_delimiter).values
-                                                                   , delimiter=word_delimiter), default_value=pad))
-    # remove input sequences of zero length
-    input_dataset = input_dataset.filter(lambda inp: tf.size(inp) > 0)
-    # Map words to ids
-    input_dataset = input_dataset.map(lambda inp: tf.cast(input_vocab_table.lookup(inp), tf.int32))
-    # get actual length of input sequence
-    input_output_dataset = input_dataset.map(lambda inp: (inp, tf.shape(inp)[0],
-                                                                      tf.cast(tf.count_nonzero(inp, axis=1), tf.int32)))
-
-    def batching_func(x):
-        return x.padded_batch(
-            batch_size,
-            padded_shapes=(tf.TensorShape([None, None]),
-                           tf.TensorShape([])),
-            padding_values=(pad_id, 0)
-        )
-
-    batched_dataset = batching_func(input_dataset)
-    batched_iter = batched_dataset.make_initializable_iterator()
-    (inputs, sess_lens, uttr_lens) = (batched_iter.get_next())
-    return BatchedInput(initializer=batched_iter.initializer,
-                        input=inputs, target=None,
-                        input_sess_length=sess_lens,
-                        input_uttr_length=uttr_lens,
-                        batch_size=tf.size(sess_lens))
-
 
 def get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table, batch_size, random_seed, pad,
                               output_buffer_size=None, uttr_delimiter="#", word_delimiter=" ",
-                              label_delimiter=" "):
+                              label_delimiter=" ", shuffle=True):
     if not output_buffer_size: output_buffer_size = batch_size * 1000
 
     pad_id = tf.cast(input_vocab_table.lookup(tf.constant(pad)),tf.int32)
     input_output_dataset = tf.data.Dataset.zip((input_dataset, output_dataset))
-    input_output_dataset = input_output_dataset.shuffle(output_buffer_size, random_seed)
+    if shuffle:
+        input_output_dataset = input_output_dataset.shuffle(output_buffer_size, random_seed)
 
     input_output_dataset=input_output_dataset.map(
         lambda inp,out: (tf.sparse_tensor_to_dense(tf.string_split(tf.string_split([inp], delimiter=uttr_delimiter).values
@@ -93,10 +62,11 @@ def get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table, 
                         batch_size=tf.size(sess_lens))
 
 
-def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None):
+def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None, shuffle=True):
     if not output_buffer_size: output_buffer_size = batch_size * 1000
     dataset = dataset.map(lambda example: tfrecords_creator.parse_sequence_tfrecord(example, feature_size), num_parallel_calls=5)
-    dataset = dataset.shuffle(output_buffer_size, random_seed)
+    if shuffle:
+        dataset = dataset.shuffle(output_buffer_size, random_seed)
 
     def batching_func(x):
         return  x.padded_batch(batch_size, padded_shapes={
@@ -119,11 +89,12 @@ def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size
 
 
 def get_iterator_flat(input_dataset, output_dataset, input_vocab_table, batch_size, random_seed, pad,
-                              output_buffer_size=None, word_delimiter=" "):
+                              output_buffer_size=None, word_delimiter=" ", shuffle=True):
     if not output_buffer_size: output_buffer_size = batch_size * 1000
 
     input_output_dataset = tf.data.Dataset.zip((input_dataset, output_dataset))
-    input_output_dataset = input_output_dataset.shuffle(output_buffer_size, random_seed)
+    if shuffle:
+        input_output_dataset = input_output_dataset.shuffle(output_buffer_size, random_seed)
 
     input_output_dataset = input_output_dataset.map(lambda inp, out: (tf.string_split([inp], delimiter=word_delimiter).
                                                                       values, tf.string_to_number(out, tf.int32)))
@@ -191,10 +162,11 @@ def get_iterator_flat_infer(input_dataset, input_vocab_table, batch_size, pad,
                         batch_size=tf.size(input_lens))
 
 
-def get_iterator_flat_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None):
+def get_iterator_flat_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None, shuffle=True):
     if not output_buffer_size: output_buffer_size = batch_size * 1000
     dataset = dataset.map(lambda example: tfrecords_creator.parse_tfrecord(example, feature_size), num_parallel_calls=5)
-    dataset = dataset.shuffle(output_buffer_size, random_seed)
+    if shuffle:
+        dataset = dataset.shuffle(output_buffer_size, random_seed)
 
     batched_dataset = dataset.batch(batch_size)
     batched_iter = batched_dataset.make_initializable_iterator()

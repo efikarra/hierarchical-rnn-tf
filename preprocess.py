@@ -10,16 +10,22 @@ def load_pickle_data(data_folder, train_input_file, train_label_file,
     import cPickle
     with open(os.path.join(data_folder,train_input_file), "rb") as f:
         tr = cPickle.load(f)
+    print("% s loaded."%train_input_file)
     with open(os.path.join(data_folder,val_input_file), "rb") as f:
         val = cPickle.load(f)
+    print("% s loaded." % val_input_file)
     with open(os.path.join(data_folder,test_input_file), "rb") as f:
         te = cPickle.load(f)
+    print("% s loaded." % test_input_file)
     with open(os.path.join(data_folder,train_label_file), "rb") as f:
         labs_tr = cPickle.load(f)
+    print("% s loaded." % train_label_file)
     with open(os.path.join(data_folder,val_label_file), "rb") as f:
         labs_val = cPickle.load(f)
+    print("% s loaded." % val_label_file)
     with open(os.path.join(data_folder,test_label_file), "rb") as f:
         labs_te = cPickle.load(f)
+    print("% s loaded." % test_label_file)
     return tr,labs_tr,val,labs_val,te,labs_te
 
 
@@ -59,8 +65,7 @@ def regroup_text_sessions(sessions,labels,session_size):
     return new_sessions,new_labels
 
 
-
-def flatten_sessions(data_folder, out_folder, suffix):
+def flatten_text_sessions(data_folder, out_folder, suffix):
     words_tr, labs_tr, words_val, labs_val, words_te, labs_te = load_pickle_data(data_folder, "splits_words_tr.pickle",
                                                                                  "splits_labs_tr.pickle",
                                                                                  "splits_words_dev.pickle",
@@ -96,6 +101,54 @@ def split_text_sessions(data_folder,session_size):
     new_words_te, new_labs_te =regroup_text_sessions(words_te, labs_te, session_size)
     assert count_utterences(words_te) == count_utterences(new_words_te)
     return new_words_tr,new_labs_tr,new_words_dev,new_labs_dev,new_words_te, new_labs_te
+
+
+def split_session(sess, session_size, to_sparse=True):
+    import scipy as sp
+    indices = [i for i in range(0, len(sess), session_size)]
+    splits = []
+    for j in range(len(indices) - 1):
+        if to_sparse:
+            splits.append(sp.sparse.csr_matrix(sess[indices[j]:indices[j + 1]]))
+        else:
+            splits.append(sess[indices[j]:indices[j + 1]])
+    splits.append(sess[indices[len(indices) - 1]:])
+    return splits
+
+
+def split_bow_sessions(data_folder,session_size,to_sparse=True):
+    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = load_pickle_data(data_folder,
+                                                                                      "splits_bow_tr.pickle",
+                                                                                      "splits_labs_tr.pickle",
+                                                                                      "splits_bow_dev.pickle",
+                                                                                      "splits_labs_dev.pickle",
+                                                                                      "splits_bow_te.pickle",
+                                                                                      "splits_labs_te.pickle")
+    new_bow_tr=[]
+    new_labs_tr=[]
+    for i,sess in enumerate(bow_tr):
+        sess = np.squeeze(np.asarray(sess.todense()))
+        new_bow_tr+=split_session(sess, session_size, to_sparse)
+        new_labs_tr+=split_session(labs_tr[i], session_size, to_sparse=False)
+    new_bow_dev = []
+    new_labs_dev = []
+    for i,sess in enumerate(bow_dev):
+        sess = np.squeeze(np.asarray(sess.todense()))
+        new_bow_dev+=split_session(sess, session_size,to_sparse)
+        new_labs_dev+=split_session(labs_dev[i], session_size, to_sparse=False)
+    new_bow_te = []
+    new_labs_te = []
+    for i,sess in enumerate(bow_te):
+        sess = np.squeeze(np.asarray(sess.todense()))
+        new_bow_te+=split_session(sess, session_size,to_sparse)
+        new_labs_te+=split_session(labs_te[i], session_size, to_sparse=False)
+
+    assert count_utterences(new_bow_tr) == count_utterences(bow_tr)
+    assert count_utterences(new_bow_dev) == count_utterences(bow_dev)
+    assert count_utterences(new_bow_te) == count_utterences(bow_te)
+
+    return new_bow_tr,new_labs_tr,new_bow_dev,new_labs_dev,new_bow_te, new_labs_te
+
 
 
 def convert_mhddata_to_text(words_tr, labs_tr, words_dev, labs_dev, words_te, labs_te, out_folder, suffix):
@@ -176,11 +229,11 @@ def preprocess_text_data(data_folder, train_input_file, train_target_file, val_i
     val_target = utils.load_file(os.path.join(data_folder, val_target_file))
     test_input = utils.load_file(os.path.join(data_folder, test_input_file))
     test_target = utils.load_file(os.path.join(data_folder, test_target_file))
-    print("Train sessions: %d " % len(train_input))
+    print("Train data: %d " % len(train_input))
     print("Train labels: %d " % len(train_target))
-    print("Val sessions: %d " % len(val_input))
+    print("Val data: %d " % len(val_input))
     print("Val labels: %d " % len(val_target))
-    print("Test sessions: %d " % len(test_input))
+    print("Test data: %d " % len(test_input))
     print("Test labels: %d " % len(test_target))
 
     # tokenize utterances within each session on space
@@ -237,9 +290,12 @@ def avg_sess_uttr_length(sessions):
     return sum_sess_len/len(sessions),max_sess,min_sess,sum_uttr_len/sum_sess_len,max_uttr,min_uttr
 
 def count_utterences(sessions):
+    import scipy.sparse
     count=0
     for sess in sessions:
-        count += len(sess)
+        if type(sess) is np.ndarray or scipy.sparse.issparse(sess) : cc=sess.shape[0]
+        else: cc=len(sess)
+        count += cc
     return count
 
 

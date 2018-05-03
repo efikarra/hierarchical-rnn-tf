@@ -5,7 +5,7 @@ import vocab_utils
 
 
 def test_tfrecords(filepath):
-    dataset = tf.contrib.data.TFRecordDataset(filepath)
+    dataset = tf.data.TFRecordDataset(filepath)
     parse = lambda inp: tfrecords_creator.parse_tfrecord(inp,12624)
     dataset = dataset.map(parse, num_parallel_calls=5)
     # get actual length of session sequence
@@ -37,8 +37,8 @@ def test_tfrecords(filepath):
 
 def test_text_data(inputpath,outputpath,vocab_path,out_dir):
     import model_helper
-    input_dataset = tf.contrib.data.TextLineDataset(inputpath)
-    output_dataset = tf.contrib.data.TextLineDataset(outputpath)
+    input_dataset = tf.data.TextLineDataset(inputpath)
+    output_dataset = tf.data.TextLineDataset(outputpath)
     vocab_size, vocab_path = vocab_utils.check_vocab(vocab_path, out_dir,
                                                      unk="<unk>", pad="<pad>")
     input_vocab_table = vocab_utils.create_vocab_table(vocab_path)
@@ -66,8 +66,27 @@ def test_text_data(inputpath,outputpath,vocab_path,out_dir):
                 sess.run(iterator.initializer)
 
 
+def test_sessions_bow_data(inputpath):
+    input_dataset = tf.data.TFRecordDataset(inputpath)
+    iterator = iterator_utils.get_iterator_hierarchical_bow(input_dataset, 128, random_seed=None, feature_size=12624, output_buffer_size=None)
+
+    with tf.Session() as sess:
+        sess.run(iterator.initializer)
+        # input,target,input_uttr_length,input_words=sess.run([iterator.input,iterator.target,iterator.input_uttr_length,input_words])
+        while True:
+            try:
+                inp,tgt,inp_sess_len=sess.run([iterator.input,iterator.target,iterator.input_sess_length])
+                print inp.shape
+                print tgt
+                print inp_sess_len
+            except tf.errors.OutOfRangeError:
+                print("end of dataset")
+                sess.run(iterator.initializer)
+
+
 if __name__=="__main__":
     # convert_sessions_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/")
     # convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/tfrecords/")
     # test_tfrecords("experiments/data/tfrecords/test_bow_uttr.tfrecord")
-    test_text_data("experiments/data/val_input_uttr.txt", "experiments/data/val_target_uttr.txt", "experiments/data/0.00.0vocab_uttr.txt", "experiments/out_model/")
+    test_sessions_bow_data("experiments/data/tfrecords/val_bow_sess_100.tfrecord")
+    # test_text_data("experiments/data/val_input_uttr.txt", "experiments/data/val_target_uttr.txt", "experiments/data/0.00.0vocab_uttr.txt", "experiments/out_model/")

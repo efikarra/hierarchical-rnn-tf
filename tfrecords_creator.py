@@ -77,27 +77,19 @@ def convert_sessions_to_tfrecords(savepath, sessions, labels):
     with open(savepath, 'w') as f:
         writer = tf.python_io.TFRecordWriter(f.name)
         for i in range(len(sessions)):
+            print i
             record = sequence_to_tf_example(sessions[i], labels[i])
             writer.write(record.SerializeToString())
 
 
-def convert_sessions_bow_to_tfrecords(data_folder, out_folder):
+def convert_sessions_bow_to_tfrecords(out_folder, session_size):
     """Convert sessions of utterances of bow into tfrecords of sequential examples."""
-    bow_tr,bow_dev,bow_te,labs_tr,labs_dev,labs_te = preprocess.load_pickle_data(data_folder,"splits_bow_tr.pickle",
-                                                                                 "splits_labs_tr.pickle",
-                                                                                 "splits_bow_dev.pickle",
-                                                                                 "splits_labs_dev.pickle",
-                                                                                "splits_bow_te.pickle",
-                                                                                 "splits_labs_te.pickle")
-    for i,sess in enumerate(bow_tr):
-        bow_tr[i] = np.squeeze(np.asarray(sess.todense()))
-    for i,sess in enumerate(bow_dev):
-        bow_dev[i] = np.squeeze(np.asarray(sess.todense()))
-    for i,sess in enumerate(bow_te):
-        bow_te[i] = np.squeeze(np.asarray(sess.todense()))
-    convert_sessions_to_tfrecords(out_folder+"train_bow_sess.tfrecord", bow_tr, labs_tr)
-    convert_sessions_to_tfrecords(out_folder + "dev_bow_sess.tfrecord", bow_dev, labs_dev)
-    convert_sessions_to_tfrecords(out_folder + "test_bow_sess.tfrecord", bow_te, labs_te)
+    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = \
+        preprocess.split_bow_sessions("experiments/mhddata_pickle/", session_size=session_size, to_sparse=False)
+
+    convert_sessions_to_tfrecords(out_folder+"train_bow_sess_"+str(session_size)+".tfrecord", bow_tr, labs_tr)
+    convert_sessions_to_tfrecords(out_folder + "val_bow_sess_"+str(session_size)+".tfrecord", bow_dev, labs_dev)
+    convert_sessions_to_tfrecords(out_folder + "test_bow_sess_"+str(session_size)+".tfrecord", bow_te, labs_te)
 
 
 def convert_utterances_bow_to_tfrecords(data_folder, out_folder):
@@ -159,6 +151,6 @@ def test_tfrecords():
 
 
 if __name__=="__main__":
-    # convert_sessions_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/")
-    # convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/tfrecords/")
-    test_tfrecords()
+    convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/tfrecords/")
+    # test_tfrecords()
+    # convert_sessions_bow_to_tfrecords("experiments/data/tfrecords/", session_size=100)

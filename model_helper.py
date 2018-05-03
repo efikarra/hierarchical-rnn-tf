@@ -19,17 +19,17 @@ class InferModel(collections.namedtuple("EvalModel",("graph", "model", "input_fi
     pass
 
 
-def get_dataset_iterator(hparams, input_path, target_path):
+def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
     if hparams.model_architecture == "ffn":
         dataset = tf.data.TFRecordDataset(input_path)
         iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=hparams.batch_size,
                                                         feature_size=hparams.feature_size,
-                                                        random_seed=hparams.random_seed)
+                                                        random_seed=hparams.random_seed,shuffle=shuffle)
     elif hparams.model_architecture == "h-rnn-ffn":
         dataset = tf.data.TFRecordDataset(input_path)
         iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
                                                                 feature_size=hparams.feature_size,
-                                                                random_seed=hparams.random_seed)
+                                                                random_seed=hparams.random_seed,shuffle=shuffle)
     else:
         input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
         input_dataset = tf.data.TextLineDataset(input_path)
@@ -38,12 +38,12 @@ def get_dataset_iterator(hparams, input_path, target_path):
             iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
                                                             batch_size=hparams.batch_size,
                                                             random_seed=hparams.random_seed,
-                                                            pad=hparams.pad)
+                                                            pad=hparams.pad,shuffle=shuffle)
         else:
             iterator = iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table,
                                                                 batch_size=hparams.batch_size,
                                                                 random_seed=hparams.random_seed,
-                                                                pad=hparams.pad)
+                                                                pad=hparams.pad,shuffle=shuffle)
     return iterator
 
 
@@ -56,14 +56,14 @@ def create_train_model(model_creator, hparams, input_path, target_path, mode):
         return TrainModel(graph, model, iterator)
 
 
-def create_eval_model(model_creator, hparams, mode):
+def create_eval_model(model_creator, hparams, mode, shuffle=True):
     graph = tf.Graph()
     with graph.as_default(), tf.container("eval"):
         input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
         output_file_placeholder=None
         if not hparams.model_architecture=="ffn" and not hparams.model_architecture=="h-rnn-ffn":
             output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
-        iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder)
+        iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder,shuffle)
         model = model_creator(hparams, mode, iterator)
         return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
 
