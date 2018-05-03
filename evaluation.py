@@ -59,7 +59,7 @@ def evaluate(hparams, ckpt):
     print("Saving predictions:")
     np.savetxt(os.path.join(hparams.eval_output_folder, hparams.predictions_filename), predictions)
     import cPickle
-    cPickle.dump(predictions,open(hparams.predictions_filename.split(".")[0]+".pickle","wb"))
+    cPickle.dump(predictions,open(os.path.join(hparams.predictions_filename.split(".")[0]+".pickle", hparams.predictions_filename),"wb"))
     # save_labels(predictions["classes"], os.path.join(hparams.eval_output_folder, "classes"))
     # save_probabilities(predictions["probabilities"], os.path.join(hparams.eval_output_folder, "probabilities"))
 
