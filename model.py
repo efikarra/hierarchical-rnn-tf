@@ -160,7 +160,7 @@ class FFN(FlatModel):
     def encoder(self, hparams, input):
         with tf.variable_scope("ffn"):
             input_emb = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
-                                         uttr_in_to_hid_dropouts=hparams.uttr_in_to_hid_dropout,
+                                         hid_to_out_dropouts=hparams.uttr_hid_to_out_dropout,
                                          activations=hparams.uttr_activation, mode=self.mode)
             return input_emb
 
@@ -184,7 +184,7 @@ class RNN(FlatModel):
             rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
                                                                      hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                                      hparams.uttr_units, hparams.uttr_layers,
-                                                                     hparams.uttr_in_to_hid_dropout,
+                                                                     hparams.uttr_hid_to_out_dropout,
                                                                      self.iterator.input_uttr_length,
                                                                      hparams.forget_bias, hparams.uttr_time_major,
                                                                      hparams.uttr_activation, self.mode)
@@ -194,3 +194,27 @@ class RNN(FlatModel):
                                                            self.iterator.input_uttr_length, hparams.uttr_attention_size)
         return utterances_embs
 
+
+class CNN(FlatModel):
+
+    def init_embeddings(self, hparams):
+        self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
+            (vocab_size=self.vocab_size,
+             emb_size=hparams.input_emb_size,
+             emb_trainable=hparams.input_emb_trainable,
+             emb_pretrain=hparams.input_emb_pretrain)
+
+
+    def encoder(self, hparams, input):
+        self.vocab_size = hparams.vocab_size
+        # Create embedding layer
+        self.init_embeddings(hparams)
+        emb_inp = tf.nn.embedding_lookup(self.input_embedding, input)
+        emb_inp = tf.expand_dims(emb_inp, -1)
+        with tf.variable_scope("utterance_rnn"):
+            filter_sizes = [(filter_size,hparams.input_emb_size) for filter_size in hparams.filter_sizes]
+            cnn_outputs = model_helper.cnn(emb_inp, filter_sizes,
+                                                    hparams.num_filters, hparams.stride,
+                                                    hparams.uttr_activation[0], hparams.uttr_hid_to_out_dropout[0],
+                                                    self.mode, hparams.pool_size, hparams.padding)
+        return cnn_outputs

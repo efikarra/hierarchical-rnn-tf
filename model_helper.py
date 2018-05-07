@@ -20,21 +20,22 @@ class InferModel(collections.namedtuple("EvalModel",("graph", "model", "input_fi
 
 
 def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
-    if hparams.model_architecture == "ffn":
-        dataset = tf.data.TFRecordDataset(input_path)
-        iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=hparams.batch_size,
-                                                        feature_size=hparams.feature_size,
-                                                        random_seed=hparams.random_seed,shuffle=shuffle)
-    elif hparams.model_architecture == "h-rnn-ffn":
-        dataset = tf.data.TFRecordDataset(input_path)
-        iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
+    if is_ffn(hparams.model_architecture):
+        if is_hierarchical(hparams.model_architecture):
+            dataset = tf.data.TFRecordDataset(input_path)
+            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
                                                                 feature_size=hparams.feature_size,
                                                                 random_seed=hparams.random_seed,shuffle=shuffle)
+        else:
+            dataset = tf.data.TFRecordDataset(input_path)
+            iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=hparams.batch_size,
+                                                            feature_size=hparams.feature_size,
+                                                            random_seed=hparams.random_seed, shuffle=shuffle)
     else:
         input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
         input_dataset = tf.data.TextLineDataset(input_path)
         output_dataset = tf.data.TextLineDataset(target_path)
-        if hparams.model_architecture == "h-rnn-rnn":
+        if is_hierarchical(hparams.model_architecture):
             iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
                                                             batch_size=hparams.batch_size,
                                                             random_seed=hparams.random_seed,
@@ -45,6 +46,18 @@ def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
                                                                 random_seed=hparams.random_seed,
                                                                 pad=hparams.pad,shuffle=shuffle)
     return iterator
+
+
+def is_hierarchical(model_architecture):
+    if model_architecture=="h-rnn-ffn" or model_architecture=="h-rnn-rnn" or model_architecture=="h-rnn-cnn":
+        return True
+    elif model_architecture=="ffn" or model_architecture=="rnn" or model_architecture=="cnn": return False
+    else: raise ValueError("Unknown model architecture %s."%model_architecture)
+
+def is_ffn(model_architecture):
+    if model_architecture=="h-rnn-ffn" or model_architecture=="ffn":
+        return True
+    else: return False
 
 
 def create_train_model(model_creator, hparams, input_path, target_path, mode):
@@ -83,14 +96,14 @@ def create_infer_model(model_creator, hparams, mode):
 
 
 def rnn_network(inputs, dtype, rnn_type,
-                unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias, time_major,
+                unit_type, num_units, num_layers, hid_to_out_dropout, sequence_length, forget_bias, time_major,
                 activations, mode):
     if rnn_type == 'uni':
-        rnn_outputs, last_hidden_sate = rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout,
+        rnn_outputs, last_hidden_sate = rnn(inputs, dtype, unit_type, num_units, num_layers, hid_to_out_dropout,
                                                  sequence_length, forget_bias, time_major, activations, mode)
     elif rnn_type == 'bi':
         rnn_outputs, last_hidden_sate = bidirectional_rnn(inputs, dtype, unit_type, num_units, num_layers,
-                                                               in_to_hid_dropout, sequence_length, forget_bias,
+                                                          hid_to_out_dropout, sequence_length, forget_bias,
                                                           time_major, activations, mode)
         last_hidden_sate = tf.concat(last_hidden_sate, -1)
     else:
@@ -98,10 +111,10 @@ def rnn_network(inputs, dtype, rnn_type,
     return rnn_outputs, last_hidden_sate
 
 
-def rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequence_length, forget_bias,
+def rnn(inputs, dtype, unit_type, num_units, num_layers, hid_to_out_dropout, sequence_length, forget_bias,
         time_major, activations, mode):
     cell = create_rnn_cell(unit_type, num_units, num_layers,
-                                        forget_bias, in_to_hid_dropout, mode, activations)
+                           forget_bias, hid_to_out_dropout, mode, activations)
     # encoder_state --> a Tensor of shape `[batch_size, cell.state_size]` or a list of such Tensors for many layers
     # the sequence_length achieves 1) performance 2) correctness. The RNN calculations stop when the true seq.
     # length is reached for each sequence. All outputs (hidden states) past the true seq length are set to 0.
@@ -116,25 +129,42 @@ def rnn(inputs, dtype, unit_type, num_units, num_layers, in_to_hid_dropout, sequ
     return rnn_outputs, last_hidden_sate
 
 
-def ffn(inputs, layers, units_list, bias, uttr_in_to_hid_dropouts, activations, mode):
+def ffn(inputs, layers, units_list, bias, hid_to_out_dropouts, activations, mode):
     layer_input = inputs
     for l in range(layers):
-        in_to_hidden_drop = uttr_in_to_hid_dropouts[l] if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
+        hid_to_out_dropout = hid_to_out_dropouts[l] if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
         layer_output = tf.layers.Dense(units_list[l], activation=get_activation_func(activations[l]), use_bias=bias)(layer_input)
-        layer_output = tf.nn.dropout(layer_output, keep_prob=(1-in_to_hidden_drop))
+        layer_output = tf.nn.dropout(layer_output, keep_prob=(1-hid_to_out_dropout))
         layer_input = layer_output
     return layer_input
 
 
+def cnn(inputs, filter_sizes, num_filters, strides, activation, dropout, mode, pool_size=None, padding="valid"):
+    outputs=[]
+    for i,filter_size in enumerate(filter_sizes):
+        conv = tf.layers.conv2d(inputs, filters=num_filters, kernel_size=filter_size, strides=strides,
+                                activation=get_activation_func(activation), padding=padding)
+        pooled=conv
+        if pool_size is not None:
+            pooled=tf.reduce_max(conv, axis=1, keep_dims=True)
+            #pooled=tf.layers.max_pooling2d(conv, pool_size=pool_size, strides=strides, padding=padding)
+        outputs.append(pooled)
+    num_filters_total = num_filters * len(filter_sizes)
+    cnn_output=tf.concat(outputs, axis=3)
+    cnn_output=tf.reshape(cnn_output,[-1,num_filters_total])
+    dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
+    cnn_output = tf.nn.dropout(cnn_output, (1-dropout))
+    return cnn_output
 
-def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, in_to_hid_dropout,
+
+def bidirectional_rnn(inputs, dtype, unit_type, num_units, num_bi_layers, hid_to_out_dropout,
                       sequence_length, forget_bias, time_major, activations, mode):
     # Construct forward and backward cells.
     #each one has num_bi_layers layers. Each layer has num_units.
     fw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                           forget_bias, in_to_hid_dropout, mode, activations)
+                                           forget_bias, hid_to_out_dropout, mode, activations)
     bw_cell = create_rnn_cell(unit_type, num_units, num_bi_layers,
-                                           forget_bias, in_to_hid_dropout, mode, activations)
+                                           forget_bias, hid_to_out_dropout, mode, activations)
 
     # initial_state_fw, initial_state_bw are initialized to 0
     # bi_outputs is a tuple (output_fw, output_bw) containing the forward and the backward rnn output Tensor
@@ -214,7 +244,7 @@ def create_embeddings(vocab_size,emb_size,emb_trainable,emb_pretrain,dtype=tf.fl
         return embedding, emb_init, emb_placeholder
 
 
-def _single_cell(unit_type, num_units, forget_bias, in_to_hidden_dropout, activation):
+def _single_cell(unit_type, num_units, forget_bias, hid_to_out_dropout, activation):
 
     # Cell Type
     if unit_type == "lstm":
@@ -229,33 +259,33 @@ def _single_cell(unit_type, num_units, forget_bias, in_to_hidden_dropout, activa
     else:
         raise ValueError("Unknown unit type %s!" % unit_type)
     # Dropout (= 1 - keep_prob)
-    if in_to_hidden_dropout > 0.0:
+    if hid_to_out_dropout > 0.0:
         single_cell = tf.contrib.rnn.DropoutWrapper(
-            cell=single_cell, input_keep_prob=(1.0 - in_to_hidden_dropout))
+            cell=single_cell, input_keep_prob=(1.0 - hid_to_out_dropout))
     return single_cell
 
 
-def _cell_list(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode, activations):
+def _cell_list(unit_type, num_units, num_layers, forget_bias, hid_to_out_dropout, mode, activations):
   """Create a list of RNN cells."""
   cell_list = []
   for i in range(num_layers):
-    in_to_hidden_drop = in_to_hidden_dropout[i] if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
+    hid_to_out_dropout = hid_to_out_dropout[i] if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
     single_cell = _single_cell(
         unit_type=unit_type,
         num_units=num_units[i],
         forget_bias=forget_bias,
-        in_to_hidden_dropout=in_to_hidden_drop,
+        hid_to_out_dropout=hid_to_out_dropout,
         activation = activations[i])
     cell_list.append(single_cell)
   return cell_list
 
 
-def create_rnn_cell(unit_type, num_units, num_layers, forget_bias, in_to_hidden_dropout, mode, activations):
+def create_rnn_cell(unit_type, num_units, num_layers, forget_bias, hid_to_out_dropout, mode, activations):
   cell_list = _cell_list(unit_type=unit_type,
                          num_units=num_units,
                          num_layers=num_layers,
                          forget_bias=forget_bias,
-                         in_to_hidden_dropout=in_to_hidden_dropout,
+                         hid_to_out_dropout=hid_to_out_dropout,
                          mode=mode,
                          activations=[get_activation_func(act_name) for act_name in activations])
 
@@ -379,6 +409,8 @@ def get_model_creator(model_architecture):
         model_creator = model.RNN
     elif model_architecture == "ffn":
         model_creator = model.FFN
+    elif model_architecture == "cnn":
+        model_creator = model.CNN
     else: raise ValueError("Unknown model architecture. Only simple_rnn is supported so far.")
     return model_creator
 

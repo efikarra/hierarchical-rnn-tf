@@ -85,7 +85,7 @@ class H_RNN(HModel):
             rnn_outputs, last_hidden_sate = model_helper.rnn_network(utterances_embs, scope.dtype,
                                                              hparams.sess_rnn_type, hparams.sess_unit_type,
                                                              hparams.sess_units, hparams.sess_layers,
-                                                             hparams.sess_in_to_hid_dropout,
+                                                             hparams.sess_hid_to_out_dropout,
                                                              self.iterator.input_sess_length,
                                                              hparams.forget_bias, hparams.sess_time_major,
                                                                      hparams.sess_activation, self.mode)
@@ -96,8 +96,8 @@ class H_RNN_FFN(H_RNN):
     """Hierarchical Model with RNN in the session level and FFN in the utterance level."""
     def utterance_encoder(self, hparams, inputs):
         utterances_embs = model_helper.ffn(self.iterator.input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
-                                     uttr_in_to_hid_dropouts=hparams.uttr_in_to_hid_dropout,
-                                     activations=hparams.uttr_activation, mode=self.mode)
+                                           hid_to_out_dropouts=hparams.uttr_hid_to_out_dropout,
+                                           activations=hparams.uttr_activation, mode=self.mode)
         return utterances_embs
 
 
@@ -123,7 +123,7 @@ class H_RNN_RNN(H_RNN):
             rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
                                                              hparams.uttr_rnn_type, hparams.uttr_unit_type,
                                                              hparams.uttr_units, hparams.uttr_layers,
-                                                             hparams.uttr_in_to_hid_dropout,
+                                                             hparams.uttr_hid_to_out_dropout,
                                                              reshape_uttr_length,
                                                              hparams.forget_bias, hparams.uttr_time_major,
                                                                      hparams.uttr_activation, self.mode)

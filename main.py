@@ -48,6 +48,21 @@ def add_arguments(parser):
     parser.add_argument("--sess_time_major", type="bool", nargs="?", const=True,
                         default=False,
                         help="Whether to use time-major mode for session dynamic RNN.")
+    #cnn
+    parser.add_argument("--filter_sizes", type=str, default='3',
+                        help="List of filter sizes for cnn model separated by comma.")
+    parser.add_argument("--num_filters", type=int, default=100,
+                        help="Number of filters for each filter size.")
+    parser.add_argument("--pool_size", type=int, default=None,
+                        help="Size of the max pooling layes. if None, no max pooling is applied.")
+    parser.add_argument("--padding", type=str, default='3',
+                        help="valid | same. Valid means that we slide the filters over an "
+                             "utterance without padding the edges.")
+    parser.add_argument("--stride", type=int, default=1,
+                        help="An integer specifying the stride "
+                             "of the convolution along the height and width.")
+
+
     # initializer
     parser.add_argument("--init_op", type=str, default="uniform",
                         help="uniform | glorot_normal | glorot_uniform")
@@ -65,8 +80,8 @@ def add_arguments(parser):
                                                                      "A list of units separated by comma should be given"
                                                                      " for multiple layers.")
     parser.add_argument("--sess_layers", type=int, default=1, help="Number of session model layers.")
-    parser.add_argument("--uttr_in_to_hid_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for utterance model.")
-    parser.add_argument("--sess_in_to_hid_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for session model.")
+    parser.add_argument("--uttr_hid_to_out_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for utterance model.")
+    parser.add_argument("--sess_hid_to_out_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for session model.")
     parser.add_argument("--uttr_rnn_type", type=str, default="uni",
                         help="uni | bi . For bi, we build enc_layers*2 bi-directional layers.")
     parser.add_argument("--sess_rnn_type", type=str, default="uni",
@@ -158,6 +173,12 @@ def create_hparams(flags):
         forget_bias=flags.forget_bias,
         input_emb_size=flags.emb_size,
         input_emb_trainable=flags.input_emb_trainable,
+        #cnn
+        filter_sizes=flags.filter_sizes,
+        num_filters=flags.num_filters,
+        pool_size=flags.pool_size,
+        padding=flags.padding,
+        stride=flags.stride,
         # initializer
         init_weight=flags.init_weight,
         init_op=flags.init_op,
@@ -166,8 +187,8 @@ def create_hparams(flags):
         uttr_layers=flags.uttr_layers,
         sess_units=flags.sess_units,
         sess_layers=flags.sess_layers,
-        uttr_in_to_hid_dropout=flags.uttr_in_to_hid_dropout,
-        sess_in_to_hid_dropout=flags.sess_in_to_hid_dropout,
+        uttr_hid_to_out_dropout=flags.uttr_hid_to_out_dropout,
+        sess_hid_to_out_dropout=flags.sess_hid_to_out_dropout,
         uttr_rnn_type=flags.uttr_rnn_type,
         sess_rnn_type=flags.sess_rnn_type,
         uttr_unit_type=flags.uttr_unit_type,
@@ -218,10 +239,11 @@ def extend_hparams(hparams):
     hparams.set_hparam("vocab_path",vocab_path)
     hparams.uttr_units = [int(units) for units in hparams.uttr_units.split(",")]
     hparams.sess_units = [int(units) for units in hparams.sess_units.split(",")]
-    hparams.uttr_in_to_hid_dropout = [float(d) for d in hparams.uttr_in_to_hid_dropout.split(",")]
-    hparams.sess_in_to_hid_dropout = [float(d) for d in hparams.sess_in_to_hid_dropout.split(",")]
+    hparams.uttr_hid_to_out_dropout = [float(d) for d in hparams.uttr_hid_to_out_dropout.split(",")]
+    hparams.sess_hid_to_out_dropout = [float(d) for d in hparams.sess_hid_to_out_dropout.split(",")]
     hparams.uttr_activation = [act_name for act_name in hparams.uttr_activation.split(",")]
     hparams.sess_activation = [act_name for act_name in hparams.sess_activation.split(",")]
+    hparams.filter_sizes = [int(f_size) for f_size in hparams.filter_sizes.split(",")]
     return hparams
 
 
