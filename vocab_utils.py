@@ -2,7 +2,7 @@ import tensorflow as tf
 import codecs
 import os
 
-UNK_ID=0
+UNK_ID=1
 UNK="<unk>"
 PAD="<pad>"
 
@@ -27,11 +27,11 @@ def check_vocab(vocab_file, out_dir, unk=None, pad=None):
         if not pad: pad = PAD
         assert len(vocab)>=2
         # Extend vocabulary to include unk and pad symbols.
-        if vocab[0] != unk or vocab[1] != pad:
+        if vocab[0] != pad or vocab[1] != unk:
             print("The first 2 vocab words [%s, %s]"
                             " are not [%s, %s]." %
-                            (vocab[0], vocab[1], unk, pad))
-            vocab = [unk, pad] + vocab
+                            (vocab[0], vocab[1], pad, unk))
+            vocab = [pad, unk] + vocab
             vocab_size += 2
             new_vocab_file = os.path.join(out_dir, os.path.basename(vocab_file))
             with codecs.getwriter("utf-8")(tf.gfile.GFile(new_vocab_file, "wb")) as f:
@@ -40,7 +40,7 @@ def check_vocab(vocab_file, out_dir, unk=None, pad=None):
                     f.write(newline + "%s" % word)
                     newline = "\n"
             print("Vocabulary was extended to include [%s, %s] and the extended file was saved to %s." %
-                  (unk, pad,new_vocab_file))
+                  (pad, unk,new_vocab_file))
             vocab_file = new_vocab_file
     else:
         raise ValueError("vocab_file does not exist.")
