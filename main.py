@@ -248,28 +248,20 @@ def extend_hparams(hparams):
 
 
 def check_hparams(hparams):
-    if hparams.model_architecture == "h-rnn-rnn" or hparams.model_architecture == "h-ffn-rnn":
+    if hparams.model_architecture == "h-rnn-rnn" or hparams.model_architecture == "h-cnn-rnn":
         if hparams.vocab_path is None: raise ValueError("If RNN or CNN in the utterance level, input vocab "
                                                         "should not be None.")
-    pass
 
 
-def create_or_load_hparams(out_dir, default_hparams, flags):
-    # if the out_dir already contains hparams file, load these hparams.
-    hparams = utils.load_hparams(out_dir)
-    if not hparams:
-        hparams = default_hparams
-        hparams = utils.maybe_parse_standard_hparams(
-            hparams, flags.hparams_path)
-        hparams = extend_hparams(hparams)
-        check_hparams(hparams)
-    else:
-        #ensure that the loaded hparams and the command line hparams are compatible. If not, the command line hparams are overwritten!
-        hparams = utils.ensure_compatible_hparams(hparams, default_hparams, flags)
-
+def process_or_load_hparams(out_dir, default_hparams, hparams_path):
+    hparams = default_hparams
+    #if a Hparams path is given as argument, override the default_hparams.
+    hparams = utils.maybe_parse_standard_hparams(hparams, hparams_path)
+    # extend HParams to add some parameters necessary for the training.
+    hparams = extend_hparams(hparams)
+    # check compatibility of HParams
+    check_hparams(hparams)
     # Save HParams
-    if not tf.gfile.Exists(hparams.out_dir):
-        tf.gfile.MakeDirs(hparams.out_dir)
     utils.save_hparams(out_dir, hparams)
 
     # Print HParams
@@ -278,21 +270,23 @@ def create_or_load_hparams(out_dir, default_hparams, flags):
     return hparams
 
 
-def run_main(flags, default_hparams, train_fn, evaluation_fn):
-    out_dir = flags.out_dir
+def run_main(default_hparams, train_fn, evaluation_fn):
+    out_dir = default_hparams.out_dir
     if not tf.gfile.Exists(out_dir): tf.gfile.MakeDirs(out_dir)
-    hparams = create_or_load_hparams(out_dir, default_hparams, flags)
-    # restrict tensoflow to run only in the specified gpu
+    hparams = process_or_load_hparams(out_dir, default_hparams, default_hparams.hparams_path)
+    # restrict tensoflow to run only in the specified gpu. This has no effect if run on a machine with no gpus. You dont care about gpus now.
     os.environ["CUDA_VISIBLE_DEVICES"] = str(hparams.gpu)
-    # if there is an evaluation output folder in the command line arguments
-    # we proceed with evaluation based on an existing model. Otherwise, we train a new model.
-    if flags.eval_output_folder:
+    # if there is an evaluation output folder in the hparams we proceed with evaluation based on an existing model.
+    # Otherwise, we train a new model.
+    if hparams.eval_output_folder:
         # Evaluation
-        ckpt = flags.ckpt
+        ckpt = hparams.ckpt
+        # if no checkpoint path is given as input, load the latest checkpoint from the output folder.
         if not ckpt:
             ckpt = tf.train.latest_checkpoint(out_dir)
         evaluation_fn(hparams, ckpt)
     else:
+        # Train
         train_fn(hparams)
 
 
@@ -301,7 +295,7 @@ def main(flags):
     default_hparams = create_hparams(flags)
     train_fn = train.train
     evaluation_fn = evaluation.evaluate
-    run_main(flags, default_hparams, train_fn, evaluation_fn)
+    run_main(default_hparams, train_fn, evaluation_fn)
 
 
 if __name__ == '__main__':
