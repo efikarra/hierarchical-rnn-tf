@@ -4,6 +4,7 @@ import tensorflow as tf
 import codecs
 import os
 import json
+import cPickle
 
 
 def get_file_name(hparams):
@@ -92,6 +93,11 @@ def get_config_proto(log_device_placement=False, allow_soft_placement=True):
     return config_proto
 
 
+def save_object(filepath, obj):
+    with open(filepath,"wb") as f:
+        cPickle.dump(obj,f)
+
+
 def save_file(filepath, data):
     with io.open(filepath, 'w', encoding="utf-8") as f:
         newline = ""
@@ -104,6 +110,14 @@ def load_file(filepath):
     with io.open(filepath, "r", encoding="utf-8") as f:
         data=f.read().splitlines()
     return data
+
+
+def load_file_split_lines(filepath, delimiter=" "):
+    with io.open(filepath, "r", encoding="utf-8") as f:
+        lines=f.read().splitlines()
+        for i,l in enumerate(lines):
+            lines[i]=l.split(delimiter)
+    return lines
 
 
 def save_sess_words_to_file(filepath, sessions, uttr_delimiter="#"):

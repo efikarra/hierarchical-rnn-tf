@@ -31,12 +31,12 @@ def load_pickle_data(data_folder, train_input_file, train_label_file,
 
 def save_pickle_data(train_input, train_labels, val_input, val_labels, test_input, test_labels, out_folder, suffix):
     import cPickle
-    with open(os.path.join(out_folder,"train_"+suffix+".pickle"), "wb") as f:
-        cPickle.dump(train_input, f)
-    with open(os.path.join(out_folder,"val_"+suffix+".pickle"), "wb") as f:
-        cPickle.dump(val_input, f)
-    with open(os.path.join(out_folder,"test_"+suffix+".pickle"), "wb") as f:
-        cPickle.dump(test_input, f)
+    # with open(os.path.join(out_folder,"train_"+suffix+".pickle"), "wb") as f:
+    #     cPickle.dump(train_input, f)
+    # with open(os.path.join(out_folder,"val_"+suffix+".pickle"), "wb") as f:
+    #     cPickle.dump(val_input, f)
+    # with open(os.path.join(out_folder,"test_"+suffix+".pickle"), "wb") as f:
+    #     cPickle.dump(test_input, f)
     with open(os.path.join(out_folder,"train_lab_"+suffix+".pickle"), "wb") as f:
         cPickle.dump(train_labels, f)
     with open(os.path.join(out_folder,"val_lab_"+suffix+".pickle"), "wb") as f:
@@ -220,7 +220,7 @@ def create_ovr_data(data_folder, train_target_file, val_target_file, test_target
         utils.save_file(os.path.join("experiments/ovr_targets", str(c) + "_" + test_target_file), test_target_ovr)
 
 def preprocess_text_data(data_folder, train_input_file, train_target_file, val_input_file,
-                         val_target_file, test_input_file, test_target_file, vocab_file, max_freq, min_freq,sessions=True):
+                         val_target_file, test_input_file, test_target_file, vocab_name, max_freq, min_freq,sessions=True):
 
     # load a list of sessions where each session is a list of utterances
     train_input = utils.load_file(os.path.join(data_folder, train_input_file))
@@ -253,7 +253,8 @@ def preprocess_text_data(data_folder, train_input_file, train_target_file, val_i
     vocab = build_vocabulary(train_input_f, max_freq=max_freq, min_freq=min_freq)
     print("Vocab size: %d " % len(vocab))
 
-    utils.save_file(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_file), vocab)
+    utils.save_file(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name+".txt"), vocab)
+    save_vocab_dict(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name+".txt"), os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name+".pickle"))
     print_stats(train_input, val_input, test_input)
 
 
@@ -270,6 +271,13 @@ def build_vocabulary(tokenized_seqs, max_freq=0.0, min_freq=0.0):
         min_idx=int(np.ceil(min_freq * len(sorted_words)))
     vocab=sorted_words[min_idx:max_idx]
     return vocab
+
+
+def save_vocab_dict(vocab_file,out_file):
+    vocab = utils.load_file(vocab_file)
+    vocab = {i: v for i, v in enumerate(vocab)}
+    print len(vocab)
+    utils.save_object(out_file, vocab)
 
 
 def avg_sess_uttr_length(sessions):
