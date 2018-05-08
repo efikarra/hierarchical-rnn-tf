@@ -144,12 +144,13 @@ def cnn(inputs, seq_lens, filter_sizes, num_filters, strides, activation, dropou
     for i,filter_size in enumerate(filter_sizes):
         conv = tf.layers.conv2d(inputs, filters=num_filters, kernel_size=filter_size, strides=strides,
                                 activation=get_activation_func(activation), padding=padding)
-        masks = []
-        mask = tf.expand_dims(tf.sequence_mask(seq_lens, maxlen=tf.shape(conv)[1], dtype=tf.float32), -1)
-        for n in range(num_filters):
-            masks.append(mask)
-        mask = tf.stack(masks, axis=3)
-        masked_conv = conv * mask
+        # masks = []
+        # mask = tf.expand_dims(tf.sequence_mask(seq_lens, maxlen=tf.shape(conv)[1], dtype=tf.float32), -1)
+        # for n in range(num_filters):
+        #     masks.append(mask)
+        # mask = tf.stack(masks, axis=3)
+        # masked_conv = conv * mask
+        masked_conv = conv
         pooled=tf.reduce_max(masked_conv, axis=1, keep_dims=True)
         #pooled=tf.layers.max_pooling2d(conv, pool_size=pool_size, strides=strides, padding=padding)
         outputs.append(pooled)
