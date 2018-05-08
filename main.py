@@ -38,7 +38,7 @@ def add_arguments(parser):
     # network
     parser.add_argument("--model_architecture", type=str, default="simple-rnn",
                         help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn | rnn |ffn. Model architecture.")
-    parser.add_argument("--emb_size", type=int, default=32, help="Input embedding size.")
+    parser.add_argument("--input_emb_size", type=int, default=32, help="Input embedding size.")
     parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Train embedding layer weights.")
     parser.add_argument("--forget_bias", type=float, default=1.0,
                         help="Forget bias for BasicLSTMCell.")
@@ -171,7 +171,7 @@ def create_hparams(flags):
         sess_time_major=flags.sess_time_major,
         n_classes=flags.n_classes,
         forget_bias=flags.forget_bias,
-        input_emb_size=flags.emb_size,
+        input_emb_size=flags.input_emb_size,
         input_emb_trainable=flags.input_emb_trainable,
         #cnn
         filter_sizes=flags.filter_sizes,
