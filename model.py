@@ -213,8 +213,8 @@ class CNN(FlatModel):
         emb_inp = tf.expand_dims(emb_inp, -1)
         with tf.variable_scope("utterance_rnn"):
             filter_sizes = [(filter_size,hparams.input_emb_size) for filter_size in hparams.filter_sizes]
-            cnn_outputs = model_helper.cnn(emb_inp, filter_sizes,
+            cnn_outputs = model_helper.cnn(emb_inp, self.iterator.input_uttr_length, filter_sizes,
                                                     hparams.num_filters, hparams.stride,
                                                     hparams.uttr_activation[0], hparams.uttr_hid_to_out_dropout[0],
-                                                    self.mode, hparams.pool_size, hparams.padding)
+                                                    self.mode, hparams.padding)
         return cnn_outputs

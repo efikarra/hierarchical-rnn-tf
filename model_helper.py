@@ -139,15 +139,19 @@ def ffn(inputs, layers, units_list, bias, hid_to_out_dropouts, activations, mode
     return layer_input
 
 
-def cnn(inputs, filter_sizes, num_filters, strides, activation, dropout, mode, pool_size=None, padding="valid"):
+def cnn(inputs, seq_lens, filter_sizes, num_filters, strides, activation, dropout, mode, padding="valid"):
     outputs=[]
     for i,filter_size in enumerate(filter_sizes):
         conv = tf.layers.conv2d(inputs, filters=num_filters, kernel_size=filter_size, strides=strides,
                                 activation=get_activation_func(activation), padding=padding)
-        pooled=conv
-        if pool_size is not None:
-            pooled=tf.reduce_max(conv, axis=1, keep_dims=True)
-            #pooled=tf.layers.max_pooling2d(conv, pool_size=pool_size, strides=strides, padding=padding)
+        masks = []
+        mask = tf.expand_dims(tf.sequence_mask(seq_lens, maxlen=tf.shape(conv)[1], dtype=tf.float32), -1)
+        for n in range(num_filters):
+            masks.append(mask)
+        mask = tf.stack(masks, axis=3)
+        masked_conv = conv * mask
+        pooled=tf.reduce_max(masked_conv, axis=1, keep_dims=True)
+        #pooled=tf.layers.max_pooling2d(conv, pool_size=pool_size, strides=strides, padding=padding)
         outputs.append(pooled)
     num_filters_total = num_filters * len(filter_sizes)
     cnn_output=tf.concat(outputs, axis=3)
