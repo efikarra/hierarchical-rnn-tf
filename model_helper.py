@@ -375,8 +375,8 @@ def load_model(model, session, name, ckpt):
     model.saver.restore(session, ckpt)
     session.run(tf.tables_initializer())
     print("loaded %s model parameters from %s, time %.2fs" % (name, ckpt, time.time()-start_time))
-    from tensorflow.python.tools import inspect_checkpoint as chkp
-    chkp.print_tensors_in_checkpoint_file(ckpt, tensor_name='flat_model/embeddings/embedding', all_tensors=False)
+    # from tensorflow.python.tools import inspect_checkpoint as chkp
+    # chkp.print_tensors_in_checkpoint_file(ckpt, tensor_name='flat_model/embeddings/embedding', all_tensors=False)
     return model
 
 
