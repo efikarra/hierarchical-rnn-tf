@@ -373,7 +373,10 @@ def run_batch_prediction(model, session):
 def load_model(model, session, name, ckpt):
     start_time=time.time()
     model.saver.restore(session, ckpt)
+    # session.run(tf.tables_initializer())
     print("loaded %s model parameters from %s, time %.2fs" % (name, ckpt, time.time()-start_time))
+    from tensorflow.python.tools import inspect_checkpoint as chkp
+    chkp.print_tensors_in_checkpoint_file(ckpt, tensor_name='flat_model/embeddings/embedding', all_tensors=False)
     return model
 
 
@@ -385,7 +388,7 @@ def create_or_load_model(model, session, name, model_dir, input_emb_weights=None
         start_time = time.time()
         #initialize all global and local variables in the graph, e.g., the model's formatted_preds.
         session.run(tf.global_variables_initializer())
-        session.run(tf.local_variables_initializer())
+        # session.run(tf.local_variables_initializer())
         # initialize all read-only tables of the graph, e.g., vocabulary tables or embedding tables.
         session.run(tf.tables_initializer())
         if input_emb_weights is not None:

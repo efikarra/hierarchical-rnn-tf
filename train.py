@@ -37,7 +37,7 @@ def train(hparams):
     # We also passed the train graph in order to be able to display it in Tensorboard
     summary_writer = tf.summary.FileWriter(os.path.join(out_dir,summary_name),train_model.graph)
 
-    #run first evaluation before starting training
+    # run first evaluation before starting training
     val_loss, val_acc = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
     train_loss, train_acc = run_evaluation(eval_model, eval_sess, model_dir, hparams.train_input_path, hparams.train_target_path,
                               hparams.input_emb_weights, summary_writer)
@@ -122,7 +122,7 @@ def train(hparams):
         epoch_accuracy = 0.0
 
     # save final model
-    loaded_train_model.saver.save(train_sess,os.path.join(out_dir,"rnn.ckpt"), global_step=num_epochs)
+    loaded_train_model.saver.save(train_sess,os.path.join(out_dir,hparams.model_architecture+".ckpt"), global_step=num_epochs)
     print("Done training in %.2fK" % (time.time() - start_train_time) )
     min_dev_loss = np.min(dev_losses)
     min_dev_idx = np.argmin(dev_losses)
