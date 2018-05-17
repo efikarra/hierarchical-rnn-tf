@@ -211,7 +211,7 @@ class CNN(FlatModel):
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, input)
         emb_inp = tf.expand_dims(emb_inp, -1)
-        with tf.variable_scope("utterance_rnn"):
+        with tf.variable_scope("utterance_cnn"):
             filter_sizes = [(filter_size,hparams.input_emb_size) for filter_size in hparams.filter_sizes]
             cnn_outputs = model_helper.cnn(emb_inp, self.iterator.input_uttr_length, filter_sizes,
                                                     hparams.num_filters, hparams.stride,
