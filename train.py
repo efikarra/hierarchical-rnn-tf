@@ -32,7 +32,7 @@ def train(hparams):
     # or, using the latest checkpoint in the model_dir, load all variables of the train graph in the train_sess.
     # Note that at this point, the eval graph variables are not initialized.
     with train_model.graph.as_default():
-        loaded_train_model = model_helper.create_or_load_model(train_model.model, train_sess, "train", model_dir, input_emb_weights)
+        loaded_train_model = model_helper.create_or_load_model(train_model.model, train_sess, "train", model_dir, hparams.input_emb_weights)
     # create a log file with name summary_name in out_dir. The file is written asynchronously during the training process.
     # We also passed the train graph in order to be able to display it in Tensorboard
     summary_writer = tf.summary.FileWriter(os.path.join(out_dir,summary_name),train_model.graph)
