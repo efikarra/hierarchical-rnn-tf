@@ -1,7 +1,7 @@
 import argparse
 import tensorflow as tf
 import os
-import model_helper
+import numpy as np
 import train
 import utils
 import evaluation
@@ -39,7 +39,7 @@ def add_arguments(parser):
     parser.add_argument("--model_architecture", type=str, default="simple-rnn",
                         help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn | rnn |ffn. Model architecture.")
     parser.add_argument("--input_emb_size", type=int, default=32, help="Input embedding size.")
-    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Train embedding layer weights.")
+    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Train embedding layer formatted_preds.")
     parser.add_argument("--forget_bias", type=float, default=1.0,
                         help="Forget bias for BasicLSTMCell.")
     parser.add_argument("--uttr_time_major", type="bool", nargs="?", const=True,
@@ -67,7 +67,7 @@ def add_arguments(parser):
     parser.add_argument("--init_op", type=str, default="uniform",
                         help="uniform | glorot_normal | glorot_uniform")
     parser.add_argument("--init_weight", type=float, default=0.1,
-                        help=("for uniform init_op, initialize weights "
+                        help=("for uniform init_op, initialize formatted_preds "
                               "between [-this, this]."))
 
     # hierarchical rnn
@@ -229,7 +229,11 @@ def create_hparams(flags):
 
 
 def extend_hparams(hparams):
+    # get pretrained embedding matrix if input_emb_file is given
+    hparams.input_emb_weights = np.loadtxt(hparams.input_emb_file, delimiter=' ') if hparams.input_emb_file else None
+    hparams.input_emb_size = hparams.input_emb_weights.shape[1] if hparams.input_emb_weights is not None else hparams.input_emb_size
     hparams.add_hparam("input_emb_pretrain", hparams.input_emb_file is not None)
+    # extend vocabulary if necessary to add <pad> and <unk> symbols.
     vocab_size = None
     vocab_path = None
     if hparams.vocab_path is not None:

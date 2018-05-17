@@ -16,7 +16,6 @@ def train(hparams):
     model_dir = out_dir
     log_device_placement = hparams.log_device_placement
 
-    input_emb_weights = np.loadtxt(hparams.input_emb_file, delimiter=' ') if hparams.input_emb_file else None
     model_creator = model_helper.get_model_creator(hparams.model_architecture)
     #create 2  models in 2 graphs for train and evaluation, with 2 sessions sharing the same variables.
     train_model = model_helper.create_train_model(model_creator, hparams, hparams.train_input_path,
@@ -39,9 +38,9 @@ def train(hparams):
     summary_writer = tf.summary.FileWriter(os.path.join(out_dir,summary_name),train_model.graph)
 
     #run first evaluation before starting training
-    val_loss, val_acc = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, input_emb_weights, summary_writer)
+    val_loss, val_acc = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
     train_loss, train_acc = run_evaluation(eval_model, eval_sess, model_dir, hparams.train_input_path, hparams.train_target_path,
-                              input_emb_weights, summary_writer)
+                              hparams.input_emb_weights, summary_writer)
     print("Before training: Val loss %.3f, Val accuracy %.3f." % (val_loss,val_acc))
     print("Before training: Train loss %.3f Train acc %.3f" % (train_loss,train_acc))
     # Start training
@@ -108,7 +107,7 @@ def train(hparams):
             loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"), global_step=epoch)
 
             print("Results: ")
-            val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, input_emb_weights, summary_writer)
+            val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
             # tr_loss = run_evaluation(eval_model, eval_sess, model_dir, hparams.train_input_path, hparams.train_target_path, input_emb_weights, summary_writer)
             # print("check %.3f:"%tr_loss)
             print(" epoch %d lr %g "
