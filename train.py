@@ -33,8 +33,6 @@ def train(hparams):
     # Note that at this point, the eval graph variables are not initialized.
     with train_model.graph.as_default():
         loaded_train_model = model_helper.create_or_load_model(train_model.model, train_sess, "train", model_dir, hparams.input_emb_weights)
-    loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture + ".ckpt"),
-                                  global_step=0)
     # create a log file with name summary_name in out_dir. The file is written asynchronously during the training process.
     # We also passed the train graph in order to be able to display it in Tensorboard
     summary_writer = tf.summary.FileWriter(os.path.join(out_dir,summary_name),train_model.graph)
@@ -65,7 +63,7 @@ def train(hparams):
         run_metadata = tf.RunMetadata()
     #train the model for num_epochs. One epoch means a pass through the whole train dataset, i.e., through all the batches.
     step=0
-    for epoch in range(1,num_epochs+1):
+    for epoch in range(num_epochs):
         #go through all batches for the current epoch
         while True:
             start_batch_time = time.time()
@@ -99,7 +97,7 @@ def train(hparams):
         epoch_accuracy /= batch_count
         print("Number of batches: %d"%batch_count)
         #print results if the current epoch is a print results epoch
-        if epoch % num_ckpt_epochs == 0:
+        if (epoch +1) % num_ckpt_epochs == 0:
             print("Saving checkpoint...")
             model_helper.add_summary(summary_writer, "train_loss", epoch_loss)
             model_helper.add_summary(summary_writer, "train_accuracy", epoch_accuracy)
