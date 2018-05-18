@@ -261,12 +261,12 @@ def process_or_load_hparams(out_dir, default_hparams, hparams_path):
     hparams = default_hparams
     #if a Hparams path is given as argument, override the default_hparams.
     hparams = utils.maybe_parse_standard_hparams(hparams, hparams_path)
+    # Save HParams
+    utils.save_hparams(out_dir, hparams)
     # extend HParams to add some parameters necessary for the training.
     hparams = extend_hparams(hparams)
     # check compatibility of HParams
     check_hparams(hparams)
-    # Save HParams
-    utils.save_hparams(out_dir, hparams)
 
     # Print HParams
     print("Print hyperparameters:")
