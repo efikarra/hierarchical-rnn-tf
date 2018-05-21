@@ -51,6 +51,7 @@ def attention(inputs, mask):
     b_omega = tf.get_variable("b_omega", shape=())
     with tf.name_scope('attention'):
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
+        v.set_shape((inputs.shape[0], inputs.shape[1]))
         v = tf.expand_dims(v, -1)
 
     alphas = tf.nn.softmax(v, name="alphas")
