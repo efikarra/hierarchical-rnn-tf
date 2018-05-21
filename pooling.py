@@ -71,6 +71,7 @@ def attention_with_context(inputs, attention_size, mask):
     vu = tf.tensordot(v, u_omega, axes=1,name="vu")
     vu.set_shape((inputs.shape[0], inputs.shape[1]))
     alphas = tf.nn.softmax(vu, name="alphas")
-    output = tf.reduce_sum(inputs * tf.expand_dims(alphas,-1) *tf.expand_dims(mask,-1), 1)
+    alphas = tf.expand_dims(alphas, -1)
+    output = tf.reduce_sum(inputs * alphas *tf.expand_dims(mask,-1), 1)
 
     return output, alphas
