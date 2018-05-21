@@ -72,7 +72,7 @@ class BaseModel(object):
         # Saver. As argument, we give the variables that are going to be saved and restored.
         # The Saver op will save the variables of the graph within it is defined. All graphs (train/eval/predict) have
         # have a Saver operator.
-        self.saver = tf.train.Saver(max_to_keep=50)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=50)
         # print trainable params
         # Print trainable variables
         print("# Trainable variables")
