@@ -16,7 +16,10 @@ class HModel(model.BaseModel):
         return loss
 
     def compute_predictions(self, logits):
-        return tf.nn.softmax(self.logits)
+        return tf.argmax(self.compute_probabilities(logits), len(logits.get_shape()) - 1)
+
+    def compute_probabilities(self, logits):
+        return tf.nn.softmax(logits)
 
 
     def build_network(self, hparams):
@@ -53,29 +56,6 @@ class HModel(model.BaseModel):
     def session_encoder(self, hparams, utterances_embs):
         """All sub-classes should implement this method."""
         pass
-
-    def train(self, sess, options=None, run_metadata=None):
-        assert self.mode == tf.contrib.learn.ModeKeys.TRAIN
-        return sess.run([self.update,
-                         self.train_loss,
-                         self.train_summary,
-                         self.global_step,
-                         self.learning_rate,
-                         self.batch_size,
-                         self.accuracy],
-                        options=options,
-                        run_metadata=run_metadata
-                        )
-
-    def eval(self, sess):
-        assert self.mode == tf.contrib.learn.ModeKeys.EVAL
-        return sess.run([self.eval_loss, self.accuracy, self.batch_size, self.predictions])
-
-
-    def predict(self, sess):
-        assert self.mode == tf.contrib.learn.ModeKeys.INFER
-        return sess.run(self.predictions)
-
 
 
 class H_RNN(HModel):
@@ -114,7 +94,6 @@ class H_RNN_RNN(H_RNN):
 
     def utterance_encoder(self, hparams, inputs):
         self.vocab_size = hparams.vocab_size
-        self.max_uttr_length = tf.shape(self.iterator.input)[2]
         # Create embedding layer
         self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, inputs)
@@ -136,36 +115,29 @@ class H_RNN_RNN(H_RNN):
 
 class H_RNN_CNN(H_RNN):
     """Hierarchical Model with RNN in the session level and CNN in the utterance level."""
-    def utterance_encoder(self, hparams, inputs):
-        self.vocab_size = hparams.vocab_size
-        # Create embedding layer
+
+    def init_embeddings(self, hparams):
         self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
             (vocab_size=self.vocab_size,
              emb_size=hparams.input_emb_size,
              emb_trainable=hparams.input_emb_trainable,
-             emb_pretrain=self.input_emb_pretrain)
+             emb_pretrain=hparams.input_emb_pretrain)
+
+    def utterance_encoder(self, hparams, inputs):
+        self.vocab_size = hparams.vocab_size
+        # Create embedding layer
+        self.init_embeddings(hparams)
         emb_inp = tf.nn.embedding_lookup(self.input_embedding, inputs)
-        with tf.variable_scope("utterance_cnn") as scope:
-            # reshape_input_emb.shape = [batch_size*num_utterances, uttr_max_len,embed_dim]
-            reshape_input_emb = tf.reshape(emb_inp, [-1, self.max_uttr_length, hparams.input_emb_size])
+        emb_inp = tf.expand_dims(emb_inp, -1)
+        with tf.variable_scope("utterance_cnn"):
+            reshape_uttr_length = tf.reshape(self.iterator.input_uttr_length, [-1])
+            filter_sizes = [(filter_size, hparams.input_emb_size) for filter_size in hparams.filter_sizes]
+            cnn_outputs = model_helper.cnn(emb_inp, reshape_uttr_length, filter_sizes,
+                                           hparams.num_filters, hparams.stride,
+                                           hparams.uttr_activation[0], hparams.uttr_hid_to_out_dropout[0],
+                                           self.mode, hparams.padding)
+        return cnn_outputs
 
-    def cnn(self, inputs, dtype, hparams):
-        pass
-
-
-
-class H_RNN_FFN_CRF(H_RNN_FFN):
-
-    def compute_loss(self, logits):
-        target_output = self.iterator.target
-        log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
-        return tf.reduce_mean(-log_likelihood)
-
-    def compute_predictions(self, logits):
-        viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
-                                                                    self.iterator.input_sess_length)
-        predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
-        return predictions
 
 
 class H_RNN_RNN_CRF(H_RNN_RNN):
@@ -175,25 +147,17 @@ class H_RNN_RNN_CRF(H_RNN_RNN):
         log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
         return tf.reduce_mean(-log_likelihood)
 
-    def compute_predictions(self, logits):
-        viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
-                                                                    self.iterator.input_sess_length)
-        predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
-        return predictions
-
-
-class H_RNN_RNN_CNN(H_RNN_CNN):
-
-    def compute_loss(self, logits):
-        target_output = self.iterator.target
-        log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)
-        return tf.reduce_mean(-log_likelihood)
+    def compute_probabilities(self, logits):
+        return tf.no_op()
 
     def compute_predictions(self, logits):
         viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
                                                                     self.iterator.input_sess_length)
         predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
         return predictions
+
+
+
 
 
 

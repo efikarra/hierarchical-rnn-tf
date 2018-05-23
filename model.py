@@ -19,10 +19,12 @@ class BaseModel(object):
             self.train_loss = loss
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
             self.eval_loss = loss
-        self.predictions = self.compute_predictions(self.logits)
+        self.predictions={
+            "probabilities": self.compute_probabilities(self.logits),
+            "labels": tf.cast(self.compute_predictions(self.logits),tf.int32)
+        }
         if self.mode != tf.contrib.learn.ModeKeys.INFER:
-            correct_pred = tf.equal(tf.argmax(self.predictions, len(self.logits.get_shape())-1),
-                                    tf.cast(self.iterator.target, tf.int64))
+            correct_pred = tf.equal(self.predictions["labels"],self.iterator.target)
             self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
         ## Learning rate
@@ -121,6 +123,10 @@ class BaseModel(object):
         pass
 
     @abc.abstractmethod
+    def compute_probabilities(self, logits):
+        pass
+
+    @abc.abstractmethod
     def compute_loss(self, logits):
         pass
 
@@ -148,7 +154,11 @@ class FlatModel(BaseModel):
         return loss
 
     def compute_predictions(self, logits):
-        return tf.nn.softmax(self.logits)
+        return tf.argmax(self.compute_probabilities(logits), len(logits.get_shape()) - 1)
+
+    def compute_probabilities(self, logits):
+        return tf.nn.softmax(logits)
+
 
     @abc.abstractmethod
     def encoder(self, hparams, input):

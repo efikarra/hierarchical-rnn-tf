@@ -49,7 +49,8 @@ def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
 
 
 def is_hierarchical(model_architecture):
-    if model_architecture=="h-rnn-ffn" or model_architecture=="h-rnn-rnn" or model_architecture=="h-rnn-cnn":
+    if model_architecture=="h-rnn-ffn" or model_architecture=="h-rnn-rnn" or model_architecture=="h-rnn-cnn" or\
+            model_architecture=="h-rnn-cnn-crf" or model_architecture=="h-rnn-rnn-crf":
         return True
     elif model_architecture=="ffn" or model_architecture=="rnn" or model_architecture=="cnn": return False
     else: raise ValueError("Unknown model architecture %s."%model_architecture)
@@ -344,7 +345,10 @@ def run_batch_evaluation_and_prediction(model, session):
             if concat_predictions is None:
                 concat_predictions = predictions
             else:
-                concat_predictions = np.append(concat_predictions, predictions, axis=0)
+                if concat_predictions["labels"] is not None:
+                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions, axis=0)
+                if concat_predictions["probabilities"] is not None:
+                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions, axis=0)
         except tf.errors.OutOfRangeError:
             break
 
@@ -363,7 +367,10 @@ def run_batch_prediction(model, session):
             if concat_predictions is None:
                 concat_predictions = predictions
             else:
-                concat_predictions = np.append(concat_predictions, predictions, axis=0)
+                if concat_predictions["labels"] is not None:
+                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions, axis=0)
+                if concat_predictions["probabilities"] is not None:
+                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions, axis=0)
 
         except tf.errors.OutOfRangeError:
             break
@@ -410,6 +417,8 @@ def get_model_creator(model_architecture):
         model_creator = hierarchical_model.H_RNN_CNN
     elif model_architecture == "h-rnn-rnn":
         model_creator = hierarchical_model.H_RNN_RNN
+    elif model_architecture == "h-rnn-rnn-crf":
+        model_creator = hierarchical_model.H_RNN_RNN_CRF
     elif model_architecture == "rnn":
         model_creator = model.RNN
     elif model_architecture == "ffn":
