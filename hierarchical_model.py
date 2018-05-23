@@ -142,6 +142,9 @@ class H_RNN_CNN(H_RNN):
 
 class H_RNN_RNN_CRF(H_RNN_RNN):
 
+    def _get_trans_params(self):
+        return self.transition_params
+
     def compute_loss(self, logits):
         target_output = self.iterator.target
         log_likelihood, self.transition_params = tf.contrib.crf.crf_log_likelihood(logits, target_output, self.iterator.input_sess_length)

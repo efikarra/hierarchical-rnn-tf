@@ -132,6 +132,7 @@ def add_arguments(parser):
                         const=True, default=False, help="Debug GPU allocation.")
     parser.add_argument("--timeline", type="bool", nargs="?",
                         const=True, default=False, help="Log timeline information.")
+    parser.add_argument("--save_trans_params", type=bool, default=True, help="Whether to save the transition parameters.")
 
     # Evaluation/Prediction
     parser.add_argument("--eval_output_folder", type=str, default=None,
@@ -224,7 +225,8 @@ def create_hparams(flags):
         random_seed=flags.random_seed,
         log_device_placement=flags.log_device_placement,
         gpu=flags.gpu,
-        timeline=flags.timeline
+        timeline=flags.timeline,
+        save_trans_params=flags.save_trans_params
     )
 
 

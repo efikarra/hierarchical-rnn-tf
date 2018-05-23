@@ -62,8 +62,13 @@ def train(hparams):
         options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
     #train the model for num_epochs. One epoch means a pass through the whole train dataset, i.e., through all the batches.
+    # If there is a previous checkpoint, start counting from that epoch.
+    start_epoch = 0
+    ckpt = tf.train.latest_checkpoint(out_dir)
+    if ckpt is not None:
+        start_epoch = int(ckpt[-1])+1
     step=0
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch,start_epoch+num_epochs):
         #go through all batches for the current epoch
         while True:
             start_batch_time = time.time()
@@ -80,7 +85,7 @@ def train(hparams):
                         f.write(chrome_trace)
                 else: step_result = loaded_train_model.train(train_sess,options=None,run_metadata=None)
 
-                (_, batch_loss, batch_summary, global_step, learning_rate, batch_size,batch_accuracy)=step_result
+                (_, batch_loss, batch_summary, global_step, learning_rate, batch_size,batch_accuracy,transition_params)=step_result
                 avg_batch_time += (time.time()-start_batch_time)
                 epoch_loss += batch_loss
                 epoch_accuracy += batch_accuracy
@@ -104,7 +109,8 @@ def train(hparams):
             # save checkpoint. We save the values of the variables of the train graph.
             # train_sess is the session in which the train graph was launched.
             # global_step parameter is optional and is appended to the name of the checkpoint.
-            loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"), global_step=epoch)
+            loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"),
+                                          global_step=epoch)
 
             print("Results: ")
             val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
@@ -122,7 +128,8 @@ def train(hparams):
         epoch_accuracy = 0.0
 
     # save final model
-    loaded_train_model.saver.save(train_sess,os.path.join(out_dir,"rnn.ckpt"), global_step=num_epochs)
+    loaded_train_model.saver.save(train_sess,os.path.join(out_dir,hparams.model_architecture+".ckpt"),
+                                  global_step=num_epochs)
     print("Done training in %.2fK" % (time.time() - start_train_time) )
     min_dev_loss = np.min(dev_losses)
     min_dev_idx = np.argmin(dev_losses)

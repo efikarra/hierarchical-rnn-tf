@@ -1,6 +1,7 @@
 import tensorflow as tf
 import model_helper
 import os
+import cPickle
 import numpy as np
 import utils
 
@@ -38,6 +39,9 @@ def evaluate(hparams, ckpt):
                 prediction_model.input_file_placeholder: hparams.eval_input_path,
             }
         predictions=predict(loaded_prediction_model, prediction_sess, prediction_model.iterator, iterator_feed_dict)
+        if hparams.save_trans_params:
+            trans_params = prediction_sess.run([loaded_prediction_model.trans_params])
+            cPickle.dump(trans_params, open(os.path.join(hparams.eval_output_folder, "trans_params.pickle"), "wb"))
     else:
         print("Starting evaluation and predictions:")
         eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL, shuffle=False)
@@ -56,10 +60,14 @@ def evaluate(hparams, ckpt):
         eval_loss, eval_accuracy, predictions = eval_and_precit(loaded_eval_model, eval_sess, eval_model.iterator,
                                                                 iterator_feed_dict)
         print("Eval loss: %.3f, Eval accuracy: %.3f" % (eval_loss, eval_accuracy))
+        if hparams.save_trans_params:
+            transition_params = eval_sess.run(loaded_eval_model.transition_params)
+            np.savetxt(os.path.join(hparams.eval_output_folder, "transition_params.txt"), transition_params)
+
     print("Saving predictions:")
     # if predictions.ndim<=2:
     #     np.savetxt(os.path.join(hparams.eval_output_folder, hparams.predictions_filename), predictions)
-    import cPickle
+
     cPickle.dump(predictions,open(os.path.join(hparams.eval_output_folder,hparams.predictions_filename.split(".")[0]+".pickle"),"wb"))
     # save_labels(predictions["classes"], os.path.join(hparams.eval_output_folder, "classes"))
     # save_probabilities(predictions["probabilities"], os.path.join(hparams.eval_output_folder, "probabilities"))

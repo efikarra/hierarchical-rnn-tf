@@ -3,7 +3,7 @@ import model_helper
 import abc
 
 class BaseModel(object):
-    def __init__(self, hparams, mode, iterator, input_vocab_table=None, reverse_input_vocab_table=None):
+    def __init__(self, hparams, mode, iterator):
         self.iterator = iterator
         self.n_classes = hparams.n_classes
         self.batch_size = iterator.batch_size
@@ -19,6 +19,7 @@ class BaseModel(object):
             self.train_loss = loss
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
             self.eval_loss = loss
+        self.transition_params = self._get_trans_params()
         self.predictions={
             "probabilities": self.compute_probabilities(self.logits),
             "labels": tf.cast(self.compute_predictions(self.logits),tf.int32)
@@ -84,6 +85,8 @@ class BaseModel(object):
         total_params = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
         print("Total number of parameters: %d" % total_params)
 
+    def _get_trans_params(self):
+        return tf.no_op()
 
     def output_layer(self, hparams, outputs):
         with tf.variable_scope("output_layer"):
@@ -100,7 +103,8 @@ class BaseModel(object):
                         self.global_step,
                         self.learning_rate,
                         self.batch_size,
-                        self.accuracy],
+                        self.accuracy,
+                        self.transition_params],
                         options=options,
                         run_metadata=run_metadata
                         )
