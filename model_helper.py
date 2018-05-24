@@ -346,9 +346,9 @@ def run_batch_evaluation_and_prediction(model, session):
                 concat_predictions = predictions
             else:
                 if concat_predictions["labels"] is not None:
-                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions, axis=0)
+                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions["labels"], axis=0)
                 if concat_predictions["probabilities"] is not None:
-                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions, axis=0)
+                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions["probabilities"], axis=0)
         except tf.errors.OutOfRangeError:
             break
 
