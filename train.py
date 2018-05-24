@@ -66,7 +66,7 @@ def train(hparams):
     start_epoch = 0
     ckpt = tf.train.latest_checkpoint(out_dir)
     if ckpt is not None:
-        start_epoch = int(ckpt[-1])+1
+        start_epoch = int(ckpt.split("-")[-1])+1
     step=0
     for epoch in range(start_epoch,start_epoch+num_epochs):
         #go through all batches for the current epoch
