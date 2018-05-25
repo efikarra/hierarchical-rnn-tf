@@ -22,11 +22,10 @@ class BaseModel(object):
         self.transition_params = self._get_trans_params()
         self.predictions={
             "probabilities": self.compute_probabilities(self.logits),
-            "labels": tf.cast(self.compute_predictions(self.logits),tf.int32)
+            "labels": tf.cast(self.compute_labels(self.logits), tf.int32)
         }
         if self.mode != tf.contrib.learn.ModeKeys.INFER:
-            correct_pred = tf.equal(self.predictions["labels"],self.iterator.target)
-            self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+            self.accuracy = self.compute_accuracy(self.predictions["labels"])
 
         ## Learning rate
         print("  start_decay_step=%d, learning_rate=%g, decay_steps %d,"
@@ -123,7 +122,7 @@ class BaseModel(object):
         pass
 
     @abc.abstractmethod
-    def compute_predictions(self, logits):
+    def compute_labels(self, logits):
         pass
 
     @abc.abstractmethod
@@ -134,6 +133,9 @@ class BaseModel(object):
     def compute_loss(self, logits):
         pass
 
+    @abc.abstractmethod
+    def compute_accuracy(self, labels):
+        pass
 
 class FlatModel(BaseModel):
 
@@ -157,7 +159,13 @@ class FlatModel(BaseModel):
         loss = tf.reduce_mean(crossent)
         return loss
 
-    def compute_predictions(self, logits):
+    def compute_accuracy(self, labels):
+        target_output = self.iterator.target
+        correct_pred = tf.equal(labels, target_output)
+        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        return accuracy
+
+    def compute_labels(self, logits):
         return tf.argmax(self.compute_probabilities(logits), len(logits.get_shape()) - 1)
 
     def compute_probabilities(self, logits):

@@ -9,13 +9,23 @@ class HModel(model.BaseModel):
     def compute_loss(self, logits):
         target_output = self.iterator.target
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target_output, logits=logits)
-        target_weights = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value,
+        mask = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value,
                                           dtype=logits.dtype)
-        loss = tf.reduce_mean(crossent * target_weights)
-        # / tf.to_float(self.batch_size)
+        crossent_masked = tf.boolean_mask(crossent, mask)
+        loss = tf.reduce_mean(crossent_masked)
         return loss
 
-    def compute_predictions(self, logits):
+    def compute_accuracy(self, labels):
+        target_output = self.iterator.target
+        correct_pred = tf.equal(labels, target_output)
+        correct_pred = tf.cast(correct_pred, tf.float32)
+        mask = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value)
+        correct_pred_masked = tf.boolean_mask(correct_pred, mask)
+        accuracy = tf.reduce_mean(correct_pred_masked)
+        return accuracy
+
+
+    def compute_labels(self, logits):
         return tf.argmax(self.compute_probabilities(logits), len(logits.get_shape()) - 1)
 
     def compute_probabilities(self, logits):
@@ -153,7 +163,7 @@ class H_RNN_RNN_CRF(H_RNN_RNN):
     def compute_probabilities(self, logits):
         return tf.no_op()
 
-    def compute_predictions(self, logits):
+    def compute_labels(self, logits):
         viterbi_sequence, viterbi_score = tf.contrib.crf.crf_decode(self.logits, self.transition_params,
                                                                     self.iterator.input_sess_length)
         predictions = tf.convert_to_tensor(viterbi_sequence)  # , np.float32)
