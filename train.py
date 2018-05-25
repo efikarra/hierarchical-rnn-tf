@@ -111,7 +111,7 @@ def train(hparams):
             # train_sess is the session in which the train graph was launched.
             # global_step parameter is optional and is appended to the name of the checkpoint.
             loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"),
-                                          global_step=num_epochs)
+                                          global_step=epoch)
 
             print("Results: ")
             val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
@@ -130,7 +130,7 @@ def train(hparams):
 
     # save final model
     loaded_train_model.saver.save(train_sess,os.path.join(out_dir,hparams.model_architecture+".ckpt"),
-                                  global_step=epoch)
+                                  global_step=num_epochs)
     print("Done training in %.2fK" % (time.time() - start_train_time) )
     min_dev_loss = np.min(dev_losses)
     min_dev_idx = np.argmin(dev_losses)
