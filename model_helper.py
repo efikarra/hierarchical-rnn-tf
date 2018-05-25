@@ -342,9 +342,9 @@ def run_batch_evaluation_and_prediction(model, session):
             loss+=batch_loss
             accuracy+=batch_accuracy
             batch_count+=1
-            if concat_predictions["labels"] is not None:
+            if predictions["labels"] is not None:
                 concat_predictions["labels"]+=[preds for preds in predictions["labels"]]
-            if concat_predictions["probabilities"] is not None:
+            if predictions["probabilities"] is not None:
                 concat_predictions["probabilities"]+=[preds for preds in  predictions["probabilities"]]
         except tf.errors.OutOfRangeError:
             break
