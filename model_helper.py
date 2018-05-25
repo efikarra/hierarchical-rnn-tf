@@ -335,20 +335,17 @@ def run_batch_evaluation_and_prediction(model, session):
     batch_count=0.0
     loss=0.0
     accuracy = 0.0
-    concat_predictions = None
+    concat_predictions = {"probabilities": [],"labels": []}
     while True:
         try:
             batch_loss,batch_accuracy,batch_size,predictions=model.eval(session)
             loss+=batch_loss
             accuracy+=batch_accuracy
             batch_count+=1
-            if concat_predictions is None:
-                concat_predictions = predictions
-            else:
-                if concat_predictions["labels"] is not None:
-                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions["labels"], axis=0)
-                if concat_predictions["probabilities"] is not None:
-                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions["probabilities"], axis=0)
+            if concat_predictions["labels"] is not None:
+                concat_predictions["labels"]+=[preds for preds in predictions["labels"]]
+            if concat_predictions["probabilities"] is not None:
+                concat_predictions["probabilities"]+=[preds for preds in  predictions["probabilities"]]
         except tf.errors.OutOfRangeError:
             break
 

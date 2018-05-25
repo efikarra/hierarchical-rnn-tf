@@ -62,7 +62,8 @@ def evaluate(hparams, ckpt):
         print("Eval loss: %.3f, Eval accuracy: %.3f" % (eval_loss, eval_accuracy))
         if hparams.save_trans_params:
             transition_params = eval_sess.run(loaded_eval_model.transition_params)
-            np.savetxt(os.path.join(hparams.eval_output_folder, "transition_params.txt"), transition_params)
+            if transition_params is not None:
+                np.savetxt(os.path.join(hparams.eval_output_folder, "transition_params.txt"), transition_params)
 
     print("Saving predictions:")
     # if predictions.ndim<=2:
