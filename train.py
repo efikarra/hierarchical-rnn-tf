@@ -68,7 +68,8 @@ def train(hparams):
     if ckpt is not None:
         start_epoch = int(ckpt.split("-")[-1])+1
     step=0
-    for epoch in range(start_epoch,start_epoch+num_epochs):
+    num_epochs = start_epoch+num_epochs
+    for epoch in range(start_epoch,num_epochs):
         #go through all batches for the current epoch
         while True:
             start_batch_time = time.time()
@@ -110,7 +111,7 @@ def train(hparams):
             # train_sess is the session in which the train graph was launched.
             # global_step parameter is optional and is appended to the name of the checkpoint.
             loaded_train_model.saver.save(train_sess, os.path.join(out_dir, hparams.model_architecture+".ckpt"),
-                                          global_step=epoch)
+                                          global_step=num_epochs)
 
             print("Results: ")
             val_loss,val_accuracy = run_evaluation(eval_model, eval_sess, model_dir, hparams.val_input_path, hparams.val_target_path, hparams.input_emb_weights, summary_writer)
@@ -129,7 +130,7 @@ def train(hparams):
 
     # save final model
     loaded_train_model.saver.save(train_sess,os.path.join(out_dir,hparams.model_architecture+".ckpt"),
-                                  global_step=num_epochs)
+                                  global_step=epoch)
     print("Done training in %.2fK" % (time.time() - start_train_time) )
     min_dev_loss = np.min(dev_losses)
     min_dev_idx = np.argmin(dev_losses)
