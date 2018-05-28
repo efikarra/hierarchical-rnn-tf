@@ -327,8 +327,8 @@ def run_batch_evaluation(model, session):
         except tf.errors.OutOfRangeError:
             break
 
-    # loss /= batch_count
-    # accuracy /= batch_count
+    loss /= batch_count
+    accuracy /= batch_count
     return loss, accuracy
 
 

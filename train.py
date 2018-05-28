@@ -52,8 +52,10 @@ def train(hparams):
     #initialize train iterator in train_sess
     train_sess.run(train_model.iterator.initializer)
     #keep lists of train/val losses for all epochs
-    train_losses=[]
-    dev_losses=[]
+    train_losses = []
+    val_losses = []
+    train_accuracies= []
+    val_accuracies = []
 
     # vars to compute timeline of operations
     options = None
@@ -122,7 +124,9 @@ def train(hparams):
                   (epoch, loaded_train_model.learning_rate.eval(session=train_sess), epoch_loss, val_loss, epoch_accuracy,
                    val_accuracy, avg_batch_time))
             train_losses.append(epoch_loss)
-            dev_losses.append(val_loss)
+            val_losses.append(val_loss)
+            train_accuracies.append(epoch_accuracy)
+            val_accuracies.append(val_accuracy)
         batch_count = 0.0
         avg_batch_time = 0.0
         epoch_loss = 0.0
@@ -132,9 +136,12 @@ def train(hparams):
     loaded_train_model.saver.save(train_sess,os.path.join(out_dir,hparams.model_architecture+".ckpt"),
                                   global_step=num_epochs)
     print("Done training in %.2fK" % (time.time() - start_train_time) )
-    min_dev_loss = np.min(dev_losses)
-    min_dev_idx = np.argmin(dev_losses)
-    print("Min val loss: %.3f at epoch %d"%(min_dev_loss,min_dev_idx))
+    min_val_loss = np.min(val_losses)
+    min_val_loss_idx = np.argmin(val_losses)
+    max_val_acc = np.max(val_accuracies)
+    max_val_acc_idx = np.argmax(val_accuracies)
+    print("Min val loss: %.3f at epoch %d"%(min_val_loss,min_val_loss_idx))
+    print("Max val accuracy: %.3f at epoch %d" % (max_val_acc, max_val_acc_idx))
     summary_writer.close()
 
 
