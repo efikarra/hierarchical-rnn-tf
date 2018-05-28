@@ -281,7 +281,7 @@ def run_main(default_hparams, train_fn, evaluation_fn):
     if not tf.gfile.Exists(out_dir): tf.gfile.MakeDirs(out_dir)
     hparams = process_or_load_hparams(out_dir, default_hparams, default_hparams.hparams_path)
     # restrict tensoflow to run only in the specified gpu. This has no effect if run on a machine with no gpus. You dont care about gpus now.
-    # os.environ["CUDA_VISIBLE_DEVICES"] = str(hparams.gpu)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(hparams.gpu)
     # if there is an evaluation output folder in the hparams we proceed with evaluation based on an existing model.
     # Otherwise, we train a new model.
     if hparams.eval_output_folder:
