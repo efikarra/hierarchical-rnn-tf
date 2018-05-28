@@ -19,16 +19,16 @@ class InferModel(collections.namedtuple("EvalModel",("graph", "model", "input_fi
     pass
 
 
-def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
+def get_dataset_iterator(hparams, input_path, target_path, batch_size, shuffle=True):
     if is_ffn(hparams.model_architecture):
         if is_hierarchical(hparams.model_architecture):
             dataset = tf.data.TFRecordDataset(input_path)
-            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=hparams.batch_size,
+            iterator = iterator_utils.get_iterator_hierarchical_bow(dataset, batch_size=batch_size,
                                                                 feature_size=hparams.feature_size,
                                                                 random_seed=hparams.random_seed,shuffle=shuffle)
         else:
             dataset = tf.data.TFRecordDataset(input_path)
-            iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=hparams.batch_size,
+            iterator = iterator_utils.get_iterator_flat_bow(dataset, batch_size=batch_size,
                                                             feature_size=hparams.feature_size,
                                                             random_seed=hparams.random_seed, shuffle=shuffle)
     else:
@@ -37,12 +37,12 @@ def get_dataset_iterator(hparams, input_path, target_path,shuffle=True):
         output_dataset = tf.data.TextLineDataset(target_path)
         if is_hierarchical(hparams.model_architecture):
             iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
-                                                            batch_size=hparams.batch_size,
+                                                            batch_size=batch_size,
                                                             random_seed=hparams.random_seed,
                                                             pad=hparams.pad,shuffle=shuffle)
         else:
             iterator = iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table,
-                                                                batch_size=hparams.batch_size,
+                                                                batch_size=batch_size,
                                                                 random_seed=hparams.random_seed,
                                                                 pad=hparams.pad,shuffle=shuffle)
     return iterator
@@ -65,7 +65,7 @@ def create_train_model(model_creator, hparams, input_path, target_path, mode):
     graph = tf.Graph()
     with graph.as_default() , tf.container("train"):
         # quick and dirty. pick a common format for the input data.
-        iterator = get_dataset_iterator(hparams, input_path, target_path)
+        iterator = get_dataset_iterator(hparams, input_path, target_path, hparams.batch_size)
         model = model_creator(hparams, mode, iterator)
         return TrainModel(graph, model, iterator)
 
@@ -77,7 +77,8 @@ def create_eval_model(model_creator, hparams, mode, shuffle=True):
         output_file_placeholder=None
         if not hparams.model_architecture=="ffn" and not hparams.model_architecture=="h-rnn-ffn":
             output_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
-        iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder,shuffle)
+        iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder,
+                                        hparams.eval_batch_size, shuffle)
         model = model_creator(hparams, mode, iterator)
         return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
 
@@ -326,8 +327,8 @@ def run_batch_evaluation(model, session):
         except tf.errors.OutOfRangeError:
             break
 
-    loss /= batch_count
-    accuracy /= batch_count
+    # loss /= batch_count
+    # accuracy /= batch_count
     return loss, accuracy
 
 

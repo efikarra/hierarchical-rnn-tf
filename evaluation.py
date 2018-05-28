@@ -29,7 +29,7 @@ def predict(model, sess, iterator, iterator_feed_dict):
 def evaluate(hparams, ckpt):
     model_creator = model_helper.get_model_creator(hparams.model_architecture)
     #dirty! change this! pick a common data format for both models.
-    if not hparams.val_target_path and not hparams.model_architecture=="h-rnn-ffn" and not hparams.model_architecture=="ffn":
+    if not hparams.eval_target_path and not hparams.model_architecture=="h-rnn-ffn" and not hparams.model_architecture=="ffn":
         print("Starting predictions:")
         prediction_model = model_helper.create_infer_model(model_creator, hparams, tf.contrib.learn.ModeKeys.INFER)
         prediction_sess = tf.Session(config=utils.get_config_proto(), graph=prediction_model.graph)
