@@ -93,6 +93,7 @@ def add_arguments(parser):
     parser.add_argument('--uttr_pooling', type=str, default="last",
                         help="last | mean | attn | attn_context . Pooling scheme for utterance hidden states to represent an utterance.")
     parser.add_argument("--uttr_attention_size", type=int, default=32, help="Attention size if attention with context is used in the utterance level.")
+    parser.add_argument('--connect_inp_to_out', type=bool, default=False, help="Whether to directly connect the utterance representation to the output layer.")
     #ffn
     parser.add_argument("--feature_size", type=int, default=32, help="Number of features if ffn as utterance encoder.")
     parser.add_argument("--uttr_activation", type=str, default='relu',
@@ -174,6 +175,7 @@ def create_hparams(flags):
         forget_bias=flags.forget_bias,
         input_emb_size=flags.input_emb_size,
         input_emb_trainable=flags.input_emb_trainable,
+        connect_inp_to_out=flags.connect_inp_to_out,
         #cnn
         filter_sizes=flags.filter_sizes,
         num_filters=flags.num_filters,

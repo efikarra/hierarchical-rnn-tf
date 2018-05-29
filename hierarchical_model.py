@@ -40,7 +40,7 @@ class HModel(model.BaseModel):
             reshape_input = tf.reshape(self.iterator.input, [-1, model_helper.get_tensor_dim(self.iterator.input,-1)])
             # utterances representation: utterances_embs.shape = [batch_size*num_utterances, uttr_units] or for bi:
             # [batch_size*num_utterances, uttr_units*2]
-            utterances_embs=self.utterance_encoder(hparams, reshape_input)
+            utterances_embs = self.utterance_encoder(hparams, reshape_input)
             # reshape_utterances_embs.shape = [batch_size,  max_sess_length, uttr_units * 2] or
             # [batch_size, max_sess_length, uttr_units]
             reshape_utterances_embs = tf.reshape(utterances_embs, shape=[self.batch_size, model_helper.get_tensor_dim(self.iterator.input,1),
@@ -48,6 +48,8 @@ class HModel(model.BaseModel):
             # session rnn outputs: session_rnn_outputs.shape = [batch_size, max_sess_length, sess_units] or for bi:
             # [batch_size, max_sess_length, sess_units*2]
             session_rnn_outputs = self.session_encoder(hparams, reshape_utterances_embs)
+            if hparams.connect_inp_to_out:
+                session_rnn_outputs = tf.concat([reshape_utterances_embs, session_rnn_outputs], axis=-1)
             logits = self.output_layer(hparams, session_rnn_outputs)
             # compute loss
             if self.mode == tf.contrib.learn.ModeKeys.INFER:
