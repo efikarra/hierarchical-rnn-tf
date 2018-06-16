@@ -48,7 +48,11 @@ def check_vocab(vocab_file, out_dir, unk=None, pad=None):
     return vocab_size, vocab_file
 
 def create_vocab_table(vocab_file):
+    # create a mapping from word to id.
+    # OOV words will be mapped to UNK_ID
     return tf.contrib.lookup.index_table_from_file(vocab_file, default_value=UNK_ID)
 
 def create_inverse_vocab_table(vocab_file, unk=UNK):
+    # create a mapping from id to word.
+    # OOV ids will be mapped to unk symbol.
     return tf.contrib.lookup.index_to_string_table_from_file(vocab_file, default_value=unk)

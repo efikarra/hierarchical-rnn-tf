@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
 import preprocess
-import model_helper
 
 def sequence_to_tf_example(sequence, labels):
     example = tf.train.SequenceExample()
@@ -85,7 +84,7 @@ def convert_sessions_to_tfrecords(savepath, sessions, labels):
 def convert_sessions_bow_to_tfrecords(out_folder, session_size):
     """Convert sessions of utterances of bow into tfrecords of sequential examples."""
     bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = \
-        preprocess.split_bow_sessions("experiments/mhddata_pickle/", session_size=session_size, to_sparse=False)
+        preprocess.split_bow_sessions("experiments/mhddata/", session_size=session_size, to_sparse=False)
 
     convert_sessions_to_tfrecords(out_folder+"train_bow_sess_"+str(session_size)+".tfrecord", bow_tr, labs_tr)
     convert_sessions_to_tfrecords(out_folder + "val_bow_sess_"+str(session_size)+".tfrecord", bow_dev, labs_dev)
@@ -94,12 +93,12 @@ def convert_sessions_bow_to_tfrecords(out_folder, session_size):
 
 def convert_utterances_bow_to_tfrecords(data_folder, out_folder):
     """Convert utterances of bow into tfrecords of examples."""
-    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = preprocess.load_pickle_data(data_folder,"splits_bow_tr.pickle",
+    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = preprocess.load_pickle_train_val_test(data_folder, "splits_bow_tr.pickle",
                                                                                  "splits_labs_tr.pickle",
                                                                                  "splits_bow_dev.pickle",
                                                                                  "splits_labs_dev.pickle",
                                                                                 "splits_bow_te.pickle",
-                                                                                 "splits_labs_te.pickle")
+                                                                                                "splits_labs_te.pickle")
     for i,sess in enumerate(bow_tr):
         bow_tr[i] = np.squeeze(np.asarray(sess.todense()))
     for i,sess in enumerate(bow_dev):
@@ -118,39 +117,7 @@ def convert_utterances_bow_to_tfrecords(data_folder, out_folder):
 
 
 
-def test_tfrecords():
-    dataset = tf.contrib.data.TFRecordDataset("experiments/data/tfrecords/test_bow_uttr.tfrecord")
-    parse = lambda inp: parse_tfrecord(inp,12624)
-    dataset = dataset.map(parse, num_parallel_calls=5)
-    # get actual length of session sequence
-    batch_size = 128
-    batched_dataset = dataset.batch(batch_size)
-    batched_iter = batched_dataset.make_initializable_iterator()
-    # inputs.shape = [batch_size, max_sess_len, max_uttr_len]
-    # inputs.shape = [batch_size, max_sess_len]
-
-    input = batched_iter.get_next()
-
-    with tf.Session() as sess:
-        sess.run(tf.tables_initializer())
-        sess.run(batched_iter.initializer)
-        data_size = 0
-        while True:
-            try:
-                next_element = sess.run(input)
-                # print next_element["label"].shape
-                # print next_element["features"].shape
-                # print next_element["features"]
-                # print next_element["label"]
-                data_size+=next_element["features"].shape[0]
-            except tf.errors.OutOfRangeError:
-                print("end of dataset")
-                break
-        print "Total data: %d"%data_size
-
-
 
 if __name__=="__main__":
-    convert_utterances_bow_to_tfrecords("experiments/mhddata_pickle/", "experiments/data/tfrecords/")
-    # test_tfrecords()
-    # convert_sessions_bow_to_tfrecords("experiments/data/tfrecords/", session_size=100)
+    convert_utterances_bow_to_tfrecords("experiments/data/mhddata/", "experiments/data/tfrecords/")
+    convert_sessions_bow_to_tfrecords("experiments/data/tfrecords/", session_size=400)

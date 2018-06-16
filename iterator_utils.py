@@ -1,3 +1,4 @@
+""" Create iterators from input text datasets. (Pad sequences, batching etc)"""
 import collections
 import tensorflow as tf
 import tfrecords_creator
@@ -18,6 +19,7 @@ class BatchedInput(collections.namedtuple("BatchedInput",
 def get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table, batch_size, random_seed, pad,
                               output_buffer_size=None, uttr_delimiter="#", word_delimiter=" ",
                               label_delimiter=" ", shuffle=True):
+    """ Create iterator for hierarchical models. (bad design: except fot models that take bows as input)"""
     if not output_buffer_size: output_buffer_size = batch_size * 1000
 
     pad_id = tf.cast(input_vocab_table.lookup(tf.constant(pad)),tf.int32)
@@ -63,6 +65,7 @@ def get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table, 
 
 
 def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None, shuffle=True):
+    """ Create iterator for hierarchical models that take bows as input."""
     if not output_buffer_size: output_buffer_size = batch_size * 1000
     dataset = dataset.map(lambda example: tfrecords_creator.parse_sequence_tfrecord(example, feature_size), num_parallel_calls=5)
     if shuffle:
@@ -90,6 +93,7 @@ def get_iterator_hierarchical_bow(dataset, batch_size, random_seed, feature_size
 
 def get_iterator_flat(input_dataset, output_dataset, input_vocab_table, batch_size, random_seed, pad,
                               output_buffer_size=None, word_delimiter=" ", shuffle=True):
+    """ Create iterator for non hierarchical models. (bad design: except fot models that take bows as input)"""
     if not output_buffer_size: output_buffer_size = batch_size * 1000
 
     input_output_dataset = tf.data.Dataset.zip((input_dataset, output_dataset))
@@ -130,6 +134,7 @@ def get_iterator_flat(input_dataset, output_dataset, input_vocab_table, batch_si
 
 
 def get_iterator_flat_bow(dataset, batch_size, random_seed, feature_size, output_buffer_size=None, shuffle=True):
+    """ Create iterator for non hierarchical models that take bows as input."""
     if not output_buffer_size: output_buffer_size = batch_size * 1000
     dataset = dataset.map(lambda example: tfrecords_creator.parse_tfrecord(example, feature_size), num_parallel_calls=5)
     if shuffle:

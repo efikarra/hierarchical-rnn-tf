@@ -5,12 +5,7 @@ import codecs
 import os
 import json
 import cPickle
-
-
-def get_file_name(hparams):
-    filename = hparams.model_architecture+"_"+hparams.num_units+"_"+hparams.num_layers+"_"+hparams.in_to_hidden_dropout\
-               +"_"+hparams.rnn_type+"_"+hparams.unit_type+"_"+hparams.emb_size+"_"+hparams.batch_size
-
+import numpy as np
 
 def maybe_parse_standard_hparams(hparams, hparams_path):
   """Override hparams values with existing standard hparams config."""
@@ -59,32 +54,6 @@ def print_hparams(hparams, skip_patterns=None):
       print("  %s=%s" % (key, str(values[key])))
 
 
-def ensure_compatible_hparams(hparams,default_hparams,flags):
-    """Make sure the loaded hparams is compatible with new changes."""
-    default_hparams = maybe_parse_standard_hparams(
-        default_hparams,flags.hparams_path)
-
-    # For compatible reason, if there are new fields in default_hparams,
-    #   we add them to the current hparams
-    default_config = default_hparams.values()
-    config = hparams.values()
-    for key in default_config:
-        if key not in config:
-            hparams.add_hparam(key,default_config[key])
-
-    # Make sure that the loaded model has latest values for the below keys
-    updated_keys = [
-        "out_dir","num_ckpt_epochs","num_epochs","gpu","batch_size","eval_input_path","eval_target_path",
-        "eval_output_folder","eval_batch_size","predict_batch_size","predictions_filename"
-    ]
-    for key in updated_keys:
-        if key in default_config and getattr(hparams,key) != default_config[key]:
-            print("# Updating hparams.%s: %s -> %s" %
-                            (key,str(getattr(hparams,key)),str(default_config[key])))
-            setattr(hparams,key,default_config[key])
-    return hparams
-
-
 def get_config_proto(log_device_placement=False, allow_soft_placement=True):
     config_proto = tf.ConfigProto(log_device_placement=log_device_placement,
                                   allow_soft_placement = allow_soft_placement)
@@ -120,17 +89,24 @@ def load_file_split_lines(filepath, delimiter=" "):
     return lines
 
 
-def save_sess_words_to_file(filepath, sessions, uttr_delimiter="#"):
+def save_sess_uttrs_to_file(filepath, sessions, uttr_delimiter="#"):
     with io.open(filepath, 'w', encoding="utf-8") as f:
         newline = ""
         for sess in sessions:
             sess_line = ""
             newuttr = ""
             for uttr in sess:
-                uttr=" ".join(uttr)
                 sess_line+=newuttr+uttr
                 newuttr = uttr_delimiter
             f.write(unicode(newline+sess_line))
+            newline="\n"
+
+
+def save_sess_labels_to_file(filepath, data, uttr_delimiter="#"):
+    with io.open(filepath, 'w', encoding="utf-8") as f:
+        newline = ""
+        for d in data:
+            f.write(unicode(newline+uttr_delimiter.join(d)))
             newline="\n"
 
 
@@ -142,9 +118,96 @@ def save_to_file(filepath, data):
             newline="\n"
 
 
-def save_sess_labels_to_file(filepath, data, uttr_delimiter="#"):
-    with io.open(filepath, 'w', encoding="utf-8") as f:
-        newline = ""
-        for d in data:
-            f.write(unicode(newline+uttr_delimiter.join(d)))
-            newline="\n"
+def get_lab_arr(lablist, n_labels=None):
+    if not n_labels:
+        maxlab = max(lablist)
+        n_labels = maxlab + 1
+    labarr = np.zeros((len(lablist), n_labels))
+    labarr[range(len(lablist)), lablist] = 1
+    return labarr
+
+
+def flatten_nested_labels(nested_labs, lab_idx=None):
+    if lab_idx is None:
+        return [nested_labs[i][j] for i in range(len(nested_labs)) for j in range(len(nested_labs[i]))]
+    else:
+        return [nested_labs[i][lab_idx][j] for i in range(len(nested_labs)) for j in range(len(nested_labs[i][lab_idx]))]
+
+
+def get_nested_labels(flattened_labs, len_list):
+    fr, to = 0, 0
+    nested_labs = []
+    for slen in len_list:
+        to = fr + slen
+        nested_labs.append(flattened_labs[fr:to])
+        fr = to
+    return nested_labs
+
+
+def save_sq_mat_with_labels(mat, lid2shortname, filename):
+    import csv
+    with open(filename, 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow([""] + lid2shortname)
+        writer.writerows([[lid2shortname[i]]+row for i, row in enumerate(mat.tolist())])
+
+
+def load_labs_from_text_sess(labs_file, lab_delimiter=" "):
+    labs = []
+    with open(labs_file, "rb") as f:
+        for line in f.readlines():
+            uttr_labs = line.split(lab_delimiter)
+            uttr_labs = [int(lab) for lab in uttr_labs]
+            labs.append(uttr_labs)
+    return labs
+
+
+def convert_to_one_hot(labs):
+    rows = labs.shape[0]
+    cols = np.max(labs)+1
+    labs_arr = np.zeros((rows,cols))
+    labs_arr[np.arange(rows), labs] = 1
+    return labs_arr
+
+
+def probs_to_labs(predictions):
+    return np.argmax(predictions, axis=1)
+
+
+def sess_probs_to_labs(predictions):
+    labels = []
+    for i,sess in enumerate(predictions):
+        labels.append(np.argmax(predictions[i], axis=1))
+    return labels
+
+
+def fix_uttr_count_rule(labs, excl_labs):
+    import copy
+    new_labs = copy.deepcopy(labs)
+    for i,sess_labs in enumerate(new_labs):
+        j=0
+        while j < len(sess_labs)-1:
+            topic1 = sess_labs[j]
+            while j<len(sess_labs)-1 and sess_labs[j]==sess_labs[j+1]:
+                j+=1
+            if j < len(sess_labs)-1:
+                topic2 = sess_labs[j+1]
+                topic2_c = 1
+                j += 1
+            while j<len(sess_labs)-1 and sess_labs[j]==sess_labs[j+1]:
+                topic2_c+=1
+                j+=1
+            if (j<len(sess_labs)-1) and (sess_labs[j+1]==topic1) and (topic2_c<=3) and (topic2 not in excl_labs):
+                for k in range(j+1-topic2_c,j+1):
+                    new_labs[i][k] = topic1
+    return new_labs
+
+
+def convert_to_broader_topic(labs, lab2ltr, lid2lab, lt2ltid):
+    broader_topic_labels = []
+    for sess_labs in labs:
+        broader_sess_labs = []
+        for j, uttr_lab in enumerate(sess_labs):
+            broader_sess_labs.append(lt2ltid[lab2ltr[lid2lab[uttr_lab]]])
+        broader_topic_labels.append(broader_sess_labs)
+    return broader_topic_labels

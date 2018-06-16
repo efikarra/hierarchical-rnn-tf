@@ -17,9 +17,9 @@ def add_arguments(parser):
     parser.add_argument("--train_target_path", type=str, default=None,
                         help="Train target file path.")
     parser.add_argument("--val_input_path", type=str, default=None,
-                        help="Validation input file path for validation dataset.")
+                        help="Validation input file path.")
     parser.add_argument("--val_target_path", type=str, default=None,
-                        help="Validation target file path for validation dataset.")
+                        help="Validation target file path.")
     parser.add_argument("--out_dir", type=str, default=None,
                         help="Store log/model files.")
     parser.add_argument("--hparams_path", type=str, default=None,
@@ -37,18 +37,14 @@ def add_arguments(parser):
 
     # network
     parser.add_argument("--model_architecture", type=str, default="simple-rnn",
-                        help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn | rnn |ffn. Model architecture.")
-    parser.add_argument("--input_emb_size", type=int, default=32, help="Input embedding size.")
-    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Train embedding layer formatted_preds.")
+                        help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn | h-rnn-rnn-crf | rnn | ffn | cnn. Model architecture.")
+    parser.add_argument("--input_emb_size", type=int, default=32,
+                        help="Input embedding size. If input_emb_file is given, the input_emb_size is inferred from "
+                             "the loaded embeddings")
+    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Whether to rain embedding layer.")
     parser.add_argument("--forget_bias", type=float, default=1.0,
                         help="Forget bias for BasicLSTMCell.")
-    parser.add_argument("--uttr_time_major", type="bool", nargs="?", const=True,
-                        default=False,
-                        help="Whether to use time-major mode for utterance dynamic RNN.")
-    parser.add_argument("--sess_time_major", type="bool", nargs="?", const=True,
-                        default=False,
-                        help="Whether to use time-major mode for session dynamic RNN.")
-    #cnn
+    # cnn
     parser.add_argument("--filter_sizes", type=str, default='3',
                         help="List of filter sizes for cnn model separated by comma.")
     parser.add_argument("--num_filters", type=int, default=100,
@@ -61,7 +57,6 @@ def add_arguments(parser):
     parser.add_argument("--stride", type=int, default=1,
                         help="An integer specifying the stride "
                              "of the convolution along the height and width.")
-
 
     # initializer
     parser.add_argument("--init_op", type=str, default="uniform",
@@ -80,8 +75,10 @@ def add_arguments(parser):
                                                                      "A list of units separated by comma should be given"
                                                                      " for multiple layers.")
     parser.add_argument("--sess_layers", type=int, default=1, help="Number of session model layers.")
-    parser.add_argument("--uttr_hid_to_out_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for utterance model.")
-    parser.add_argument("--sess_hid_to_out_dropout", type=str, default='0.0', help="List of input to hidden layer dropouts for session model.")
+    parser.add_argument("--uttr_hid_to_out_dropout", type=str, default='0.0',
+                        help="List of hidden to output layer dropouts for utterance model layers.")
+    parser.add_argument("--sess_hid_to_out_dropout", type=str, default='0.0',
+                        help="List of hidden to output layer dropouts for session model layers.")
     parser.add_argument("--uttr_rnn_type", type=str, default="uni",
                         help="uni | bi . For bi, we build enc_layers*2 bi-directional layers.")
     parser.add_argument("--sess_rnn_type", type=str, default="uni",
@@ -91,11 +88,14 @@ def add_arguments(parser):
     parser.add_argument('--sess_unit_type', type=str, default="rnn",
                         help="rnn | lstm | gru.")
     parser.add_argument('--uttr_pooling', type=str, default="last",
-                        help="last | mean | attn | attn_context . Pooling scheme for utterance hidden states to represent an utterance.")
-    parser.add_argument("--uttr_attention_size", type=int, default=32, help="Attention size if attention with context is used in the utterance level.")
-    parser.add_argument('--connect_inp_to_out', type=bool, default=False, help="Whether to directly connect the utterance representation to the output layer.")
-    #ffn
-    parser.add_argument("--feature_size", type=int, default=32, help="Number of features if ffn as utterance encoder.")
+                        help="last | mean | attn | attn_context . Pooling scheme to transform "
+                             "utterance model hidden states into an utterance representation.")
+    parser.add_argument("--uttr_attention_size", type=int, default=32,
+                        help="Attention size if attention with context is used in the utterance level.")
+    parser.add_argument('--connect_inp_to_out', type=bool, default=False,
+                        help="Whether to directly connect the utterance representation to the output layer.")
+    # ffn
+    parser.add_argument("--feature_size", type=int, default=32, help="Number of features, only used when ffn as utterance encoder.")
     parser.add_argument("--uttr_activation", type=str, default='relu',
                         help="List of activation functions for each layer of the utterance model.")
     parser.add_argument("--sess_activation", type=str, default='relu',
@@ -109,11 +109,11 @@ def add_arguments(parser):
     # optimizer
     parser.add_argument("--optimizer", type=str, default="sgd", help="sgd | adam")
     parser.add_argument("--learning_rate", type=float, default=0.1,
-                        help="Learning rate. Adam: 0.001 | 0.0001")
+                        help="Learning rate.")
     parser.add_argument("--start_decay_step", type=int, default=0,
-                        help="When we start to decay")
+                        help="When we start to decay.")
     parser.add_argument("--decay_steps", type=int, default=10000,
-                        help="How frequent we decay")
+                        help="How frequent we decay.")
     parser.add_argument("--decay_factor", type=float, default=0.98,
                         help="How much we decay.")
     parser.add_argument("--colocate_gradients_with_ops", type="bool", nargs="?",
@@ -127,13 +127,14 @@ def add_arguments(parser):
     # Other
     parser.add_argument("--gpu", type=int, default=0,
                         help="Gpu machine to run the code (if gpus available)")
-    parser.add_argument("--random_seed",type=int,default=None,
+    parser.add_argument("--random_seed", type=int, default=None,
                         help="Random seed (>0, set a specific seed).")
     parser.add_argument("--log_device_placement", type="bool", nargs="?",
                         const=True, default=False, help="Debug GPU allocation.")
     parser.add_argument("--timeline", type="bool", nargs="?",
-                        const=True, default=False, help="Log timeline information.")
-    parser.add_argument("--save_trans_params", type=bool, default=True, help="Whether to save the transition parameters.")
+                        const=True, default=False, help="Whether to log timeline information.")
+    parser.add_argument("--save_trans_params", type=bool, default=True,
+                        help="Whether to save the transition parameters.")
 
     # Evaluation/Prediction
     parser.add_argument("--eval_output_folder", type=str, default=None,
@@ -143,14 +144,13 @@ def add_arguments(parser):
     parser.add_argument("--eval_batch_size", type=int, default=32,
                         help="Batch size for evaluation mode.")
     parser.add_argument("--predict_batch_size", type=int, default=32,
-                        help="Batch size for prediction mode.")
+                        help="Batch size for infer mode.")
     parser.add_argument("--eval_input_path", type=str, default=None,
                         help="Input file path to perform evaluation and/or prediction.")
     parser.add_argument("--eval_target_path", type=str, default=None,
                         help="Output file path to perform evaluation and prediction.")
     parser.add_argument("--predictions_filename", type=str, default="predictions.txt",
                         help="Filename to save predictions.")
-
 
 
 def create_hparams(flags):
@@ -169,14 +169,12 @@ def create_hparams(flags):
         pad=flags.pad,
         # network
         model_architecture=flags.model_architecture,
-        uttr_time_major=flags.uttr_time_major,
-        sess_time_major=flags.sess_time_major,
         n_classes=flags.n_classes,
         forget_bias=flags.forget_bias,
         input_emb_size=flags.input_emb_size,
         input_emb_trainable=flags.input_emb_trainable,
         connect_inp_to_out=flags.connect_inp_to_out,
-        #cnn
+        # cnn
         filter_sizes=flags.filter_sizes,
         num_filters=flags.num_filters,
         pool_size=flags.pool_size,
@@ -199,7 +197,7 @@ def create_hparams(flags):
         uttr_pooling=flags.uttr_pooling,
         uttr_attention_size=flags.uttr_attention_size,
         out_bias=flags.out_bias,
-        #ffn
+        # ffn
         feature_size=flags.feature_size,
         uttr_activation=flags.uttr_activation,
         sess_activation=flags.sess_activation,
@@ -222,7 +220,7 @@ def create_hparams(flags):
         eval_target_path=flags.eval_target_path,
         eval_batch_size=flags.eval_batch_size,
         predict_batch_size=flags.predict_batch_size,
-        predictions_filename = flags.predictions_filename,
+        predictions_filename=flags.predictions_filename,
         # Other
         random_seed=flags.random_seed,
         log_device_placement=flags.log_device_placement,
@@ -232,19 +230,21 @@ def create_hparams(flags):
     )
 
 
-def extend_hparams(hparams):
-    # get pretrained embedding matrix if input_emb_file is given
+def process_hparams(hparams):
+    # load pretrained embedding matrix if input_emb_file is given
     hparams.input_emb_weights = np.loadtxt(hparams.input_emb_file, delimiter=' ') if hparams.input_emb_file else None
-    hparams.input_emb_size = hparams.input_emb_weights.shape[1] if hparams.input_emb_weights is not None else hparams.input_emb_size
+    # if pretrained embeddings are given, infer the value of hparams.input_emb_size
+    hparams.input_emb_size = hparams.input_emb_weights.shape[
+        1] if hparams.input_emb_weights is not None else hparams.input_emb_size
     hparams.add_hparam("input_emb_pretrain", hparams.input_emb_file is not None)
     # extend vocabulary if necessary to add <pad> and <unk> symbols.
     vocab_size = None
     vocab_path = None
     if hparams.vocab_path is not None:
         vocab_size, vocab_path = vocab_utils.check_vocab(hparams.vocab_path, hparams.out_dir,
-                                                     unk=hparams.unk, pad=hparams.pad)
-    hparams.add_hparam("vocab_size",vocab_size)
-    hparams.set_hparam("vocab_path",vocab_path)
+                                                         unk=hparams.unk, pad=hparams.pad)
+    hparams.add_hparam("vocab_size", vocab_size)
+    hparams.set_hparam("vocab_path", vocab_path)
     hparams.uttr_units = [int(units) for units in hparams.uttr_units.split(",")]
     hparams.sess_units = [int(units) for units in hparams.sess_units.split(",")]
     hparams.uttr_hid_to_out_dropout = [float(d) for d in hparams.uttr_hid_to_out_dropout.split(",")]
@@ -263,10 +263,10 @@ def check_hparams(hparams):
 
 def process_or_load_hparams(out_dir, default_hparams, hparams_path):
     hparams = default_hparams
-    #if a Hparams path is given as argument, override the default_hparams.
+    # if a Hparams path is given as argument, override the default_hparams.
     hparams = utils.maybe_parse_standard_hparams(hparams, hparams_path)
     # extend HParams to add some parameters necessary for the training.
-    hparams = extend_hparams(hparams)
+    hparams = process_hparams(hparams)
     # check compatibility of HParams
     check_hparams(hparams)
     # Save HParams
@@ -282,19 +282,19 @@ def run_main(default_hparams, train_fn, evaluation_fn):
     out_dir = default_hparams.out_dir
     if not tf.gfile.Exists(out_dir): tf.gfile.MakeDirs(out_dir)
     hparams = process_or_load_hparams(out_dir, default_hparams, default_hparams.hparams_path)
-    # restrict tensoflow to run only in the specified gpu. This has no effect if run on a machine with no gpus. You dont care about gpus now.
+    # restrict tensoflow to run only in the specified gpu. This has no effect if run on a machine with no gpus.
     os.environ["CUDA_VISIBLE_DEVICES"] = str(hparams.gpu)
-    # if there is an evaluation output folder in the hparams we proceed with evaluation based on an existing model.
+    # if there hparams.eval_output_folder is not None. we proceed with evaluation based on an existing model.
     # Otherwise, we train a new model.
     if hparams.eval_output_folder:
-        # Evaluation
+        # Evaluation of an existing model.
         ckpt = hparams.ckpt
         # if no checkpoint path is given as input, load the latest checkpoint from the output folder.
         if not ckpt:
             ckpt = tf.train.latest_checkpoint(out_dir)
         evaluation_fn(hparams, ckpt)
     else:
-        # Train
+        # Train a new model.
         train_fn(hparams)
 
 
