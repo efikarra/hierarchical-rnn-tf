@@ -1,0 +1,15 @@
+{"vocab_path": ["experiments/data/0.00.1vocab.txt"],
+"model_architecture": ["rnn"],
+"uttr_units": ["128"],
+"uttr_layers": ["1"],
+"uttr_hid_to_out_dropout": ["0.7"],
+"uttr_rnn_type": ["uni"],
+"uttr_unit_type": ["gru"],
+"uttr_pooling": ["last"],
+"input_emb_size": ["64"],
+"batch_size": ["128"],
+"num_epochs": ["15"],
+"learning_rate": ["0.001"],
+  "init_op": ["glorot_normal"],
+  "input_emb_file": ["experiments/embeddings/glove.840B.300d_0.00.1vocab.txt"]
+}

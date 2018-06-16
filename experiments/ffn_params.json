@@ -1,0 +1,10 @@
+{
+"model_architecture": ["ffn"],
+"uttr_units": ["128"],
+"uttr_layers": ["1"],
+"uttr_hid_to_out_dropout": ["0.7"],
+"batch_size": ["128"],
+"num_epochs": ["15"],
+"learning_rate": ["0.01"],
+  "uttr_activation":["relu"]
+}

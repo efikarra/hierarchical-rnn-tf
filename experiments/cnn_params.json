@@ -1,0 +1,15 @@
+{
+"model_architecture": ["cnn"],
+"filter_sizes": ["4,5"],
+"num_filters": ["50"],
+"padding": ["valid"],
+"stride": ["1"],
+"uttr_hid_to_out_dropout": ["0.7"],
+  "uttr_activation":["relu"],
+"input_emb_size": ["300"],
+"batch_size": ["128"],
+"num_epochs": ["20"],
+"learning_rate": ["0.001"],
+"init_op": ["glorot_normal"],
+"input_emb_file": ["experiments/embeddings/glove.840B.300d_0.00.1vocab.txt"]
+}
