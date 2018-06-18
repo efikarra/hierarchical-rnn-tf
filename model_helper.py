@@ -1,3 +1,4 @@
+""" Helper methods for the models."""
 import collections
 import tensorflow as tf
 import time
@@ -23,19 +24,20 @@ class InferModel(collections.namedtuple("EvalModel", ("graph", "model", "input_f
 
 def get_dataset_iterator(hparams, input_path, target_path, batch_size, shuffle=True):
     if is_ffn(hparams.model_architecture):
+        #If FFN model is involved, data are in the form of TFRecords and both input and labels are in the same tfrecord file.
+        # So we don't need anoutput_dataset tf dataset.
         if is_hierarchical(hparams.model_architecture):
             input_dataset = tf.data.Dataset.from_tensor_slices(input_path)
-            output_dataset = tf.data.Dataset.from_tensor_slices(target_path)
-            iterator = iterator_utils.get_iterator_hierarchical_bow(input_dataset, output_dataset, batch_size=batch_size,
+            iterator = iterator_utils.get_iterator_hierarchical_bow(input_dataset, batch_size=batch_size,
                                                                     feature_size=hparams.feature_size,
                                                                     random_seed=hparams.random_seed, shuffle=shuffle)
         else:
             input_dataset = tf.data.Dataset.from_tensor_slices(input_path)
-            output_dataset = tf.data.Dataset.from_tensor_slices(target_path)
-            iterator = iterator_utils.get_iterator_flat_bow(input_dataset, output_dataset, batch_size=batch_size,
+            iterator = iterator_utils.get_iterator_flat_bow(input_dataset, batch_size=batch_size,
                                                             feature_size=hparams.feature_size,
                                                             random_seed=hparams.random_seed, shuffle=shuffle)
     else:
+        # create a table to map words to vocab ids.
         input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
         input_dataset = tf.data.TextLineDataset(input_path)
         output_dataset = tf.data.TextLineDataset(target_path)
@@ -72,15 +74,19 @@ def is_ffn(model_architecture):
 def create_train_model(model_creator, hparams, input_path, target_path, mode):
     graph = tf.Graph()
     with graph.as_default(), tf.container("train"):
-        # quick and dirty. pick a common format for the input data.
+        # create iterator over the train batches.
         iterator = get_dataset_iterator(hparams, input_path, target_path, hparams.batch_size)
+        # create the actual model (the tf.graph).
         model = model_creator(hparams, mode, iterator)
         return TrainModel(graph, model, iterator)
 
 
 def create_eval_model(model_creator, hparams, mode, shuffle=True):
+    """Create eval graph, model, src/tgt file holders, and iterator."""
     graph = tf.Graph()
     with graph.as_default(), tf.container("eval"):
+        # define a placeholder for the input dataset.
+        # we will dynamically initialize this placeholder with a file name during validation.
         input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
         output_file_placeholder = None
         if not hparams.model_architecture == "ffn" and not hparams.model_architecture == "h-rnn-ffn":
@@ -89,20 +95,6 @@ def create_eval_model(model_creator, hparams, mode, shuffle=True):
                                         hparams.eval_batch_size, shuffle)
         model = model_creator(hparams, mode, iterator)
         return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
-
-
-def create_infer_model(model_creator, hparams, mode):
-    graph = tf.Graph()
-    with graph.as_default(), tf.container("predict"):
-        input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
-        input_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
-        input_dataset = tf.data.TextLineDataset(input_file_placeholder)
-
-        iterator = iterator_utils.get_iterator_hierarchical_infer(input_dataset, input_vocab_table,
-                                                                  batch_size=hparams.predict_batch_size,
-                                                                  pad=hparams.pad)
-        model = model_creator(hparams, mode, iterator, input_vocab_table=input_vocab_table)
-        return InferModel(graph, model, input_file_placeholder, iterator)
 
 
 def rnn_network(inputs, dtype, rnn_type,
@@ -361,27 +353,6 @@ def run_batch_evaluation_and_prediction(model, session):
     loss /= batch_count
     accuracy /= batch_count
     return loss, accuracy, concat_predictions
-
-
-def run_batch_prediction(model, session):
-    concat_predictions = None
-    batch_count = 0
-    while True:
-        try:
-            batch_count += 1
-            predictions = model.predict(session)
-            if concat_predictions is None:
-                concat_predictions = predictions
-            else:
-                if concat_predictions["labels"] is not None:
-                    concat_predictions["labels"] = np.append(concat_predictions["labels"], predictions, axis=0)
-                if concat_predictions["probabilities"] is not None:
-                    concat_predictions["probabilities"] = np.append(concat_predictions["probabilities"], predictions,
-                                                                    axis=0)
-
-        except tf.errors.OutOfRangeError:
-            break
-    return concat_predictions
 
 
 def load_model(model, session, name, ckpt):

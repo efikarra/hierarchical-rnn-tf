@@ -1,3 +1,4 @@
+""" run this module from command line to run the different models."""
 import argparse
 import tensorflow as tf
 import os
@@ -9,6 +10,7 @@ import vocab_utils
 
 
 def add_arguments(parser):
+    """ Supported command line arguments"""
     parser.register("type", "bool", lambda v: v.lower() == "true")
 
     # Data
@@ -21,7 +23,7 @@ def add_arguments(parser):
     parser.add_argument("--val_target_path", type=str, default=None,
                         help="Validation target file path.")
     parser.add_argument("--out_dir", type=str, default=None,
-                        help="Store log/model files.")
+                        help="Directory to save log/checkpoint files.")
     parser.add_argument("--hparams_path", type=str, default=None,
                         help=("Path to standard hparams json file that overrides"
                               "hparams values from FLAGS."))
@@ -36,40 +38,40 @@ def add_arguments(parser):
                         help="Padding symbol")
 
     # network
-    parser.add_argument("--model_architecture", type=str, default="simple-rnn",
+    parser.add_argument("--model_architecture", type=str, default="rnn",
                         help="h-rnn-rnn | h-rnn-ffn | h-rnn-cnn | h-rnn-rnn-crf | rnn | ffn | cnn. Model architecture.")
     parser.add_argument("--input_emb_size", type=int, default=32,
                         help="Input embedding size. If input_emb_file is given, the input_emb_size is inferred from "
-                             "the loaded embeddings")
-    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Whether to rain embedding layer.")
+                             "the loaded embeddings.")
+    parser.add_argument("--input_emb_trainable", type=bool, default=True, help="Whether to train embedding layer.")
     parser.add_argument("--forget_bias", type=float, default=1.0,
                         help="Forget bias for BasicLSTMCell.")
     # cnn
     parser.add_argument("--filter_sizes", type=str, default='3',
-                        help="List of filter sizes for cnn model separated by comma.")
+                        help="Only for CNN models: List of filter sizes separated by comma.")
     parser.add_argument("--num_filters", type=int, default=100,
-                        help="Number of filters for each filter size.")
+                        help="Only for CNN models: Number of filters for each filter size.")
     parser.add_argument("--pool_size", type=int, default=None,
-                        help="Size of the max pooling layes. if None, no max pooling is applied.")
+                        help="Only for CNN models: Size of the max pooling layer. if None, no max pooling is applied.")
     parser.add_argument("--padding", type=str, default='3',
-                        help="valid | same. Valid means that we slide the filters over an "
+                        help="valid | same. Only for CNN models: Valid means that we slide the filters over an "
                              "utterance without padding the edges.")
     parser.add_argument("--stride", type=int, default=1,
-                        help="An integer specifying the stride "
+                        help="Only for CNN models: An integer specifying the stride "
                              "of the convolution along the height and width.")
 
     # initializer
     parser.add_argument("--init_op", type=str, default="uniform",
-                        help="uniform | glorot_normal | glorot_uniform")
+                        help="uniform | glorot_normal | glorot_uniform. Initializer for all model weights.")
     parser.add_argument("--init_weight", type=float, default=0.1,
-                        help=("for uniform init_op, initialize formatted_preds "
-                              "between [-this, this]."))
+                        help=("for uniform init_op: uniform distr: [-init_weight, init_weight]."))
 
     # hierarchical rnn
     parser.add_argument("--out_bias", type=bool, default=True, help="Whether to use bias in the output layer.")
     parser.add_argument("--uttr_units", type=str, default='32', help="Hidden units of utterance model. "
                                                                      "A list of units separated by comma should be given"
                                                                      " for multiple layers.")
+    # !!! I NEVER REALLY TESTED MORE THAN 1 LAYER SO MOST LIKELY THERE ARE BUGS FOR >1 LAYER. !!!
     parser.add_argument("--uttr_layers", type=int, default=1, help="Number of utterance model layers.")
     parser.add_argument("--sess_units", type=str, default='32', help="Hidden units of session model. "
                                                                      "A list of units separated by comma should be given"
@@ -80,9 +82,9 @@ def add_arguments(parser):
     parser.add_argument("--sess_hid_to_out_dropout", type=str, default='0.0',
                         help="List of hidden to output layer dropouts for session model layers.")
     parser.add_argument("--uttr_rnn_type", type=str, default="uni",
-                        help="uni | bi . For bi, we build enc_layers*2 bi-directional layers.")
+                        help="uni | bi .")
     parser.add_argument("--sess_rnn_type", type=str, default="uni",
-                        help="uni | bi . For bi, we build enc_layers*2 bi-directional layers.")
+                        help="uni | bi.")
     parser.add_argument('--uttr_unit_type', type=str, default="rnn",
                         help="rnn | lstm | gru.")
     parser.add_argument('--sess_unit_type', type=str, default="rnn",
@@ -95,14 +97,14 @@ def add_arguments(parser):
     parser.add_argument('--connect_inp_to_out', type=bool, default=False,
                         help="Whether to directly connect the utterance representation to the output layer.")
     # ffn
-    parser.add_argument("--feature_size", type=int, default=32, help="Number of features, only used when ffn as utterance encoder.")
+    parser.add_argument("--feature_size", type=int, default=32, help="ONLY FOR FFN: Number of features.")
     parser.add_argument("--uttr_activation", type=str, default='relu',
                         help="List of activation functions for each layer of the utterance model.")
     parser.add_argument("--sess_activation", type=str, default='relu',
-                        help="List of activation functions for each layer of the utterance model.")
+                        help="List of activation functions for each layer of the session model.")
     # training
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
-    parser.add_argument("--num_epochs", type=int, default=10, help="Number of epochs to train.")
+    parser.add_argument("--num_epochs", type=int, default=10, help="Number of epochs to train the model.")
     parser.add_argument("--num_ckpt_epochs", type=int, default=2,
                         help="Number of epochs until the next checkpoint saving.")
 
@@ -132,23 +134,22 @@ def add_arguments(parser):
     parser.add_argument("--log_device_placement", type="bool", nargs="?",
                         const=True, default=False, help="Debug GPU allocation.")
     parser.add_argument("--timeline", type="bool", nargs="?",
-                        const=True, default=False, help="Whether to log timeline information.")
+                        const=True, default=False, help="Whether to log timeline information for use in Tensorboard.")
     parser.add_argument("--save_trans_params", type=bool, default=True,
-                        help="Whether to save the transition parameters.")
+                        help="Only for CRF: Whether to save the transition parameters.")
 
     # Evaluation/Prediction
     parser.add_argument("--eval_output_folder", type=str, default=None,
-                        help="Output folder to save evaluation data.")
+                        help="Output folder to save evaluation data. If None, a new model is trained. If a value is given,"
+                             " an existing model is loaded from out_dir and evaluated.")
     parser.add_argument("--ckpt", type=str, default=None,
-                        help="Checkpoint file.")
+                        help="Checkpoint file to evaluate an existing model.")
     parser.add_argument("--eval_batch_size", type=int, default=32,
-                        help="Batch size for evaluation mode.")
-    parser.add_argument("--predict_batch_size", type=int, default=32,
-                        help="Batch size for infer mode.")
+                        help="Batch size for evaluation.")
     parser.add_argument("--eval_input_path", type=str, default=None,
-                        help="Input file path to perform evaluation and/or prediction.")
+                        help="Input file path to perform evaluation.")
     parser.add_argument("--eval_target_path", type=str, default=None,
-                        help="Output file path to perform evaluation and prediction.")
+                        help="Output file path to perform evaluation.")
     parser.add_argument("--predictions_filename", type=str, default="predictions.txt",
                         help="Filename to save predictions.")
 
@@ -219,7 +220,6 @@ def create_hparams(flags):
         eval_input_path=flags.eval_input_path,
         eval_target_path=flags.eval_target_path,
         eval_batch_size=flags.eval_batch_size,
-        predict_batch_size=flags.predict_batch_size,
         predictions_filename=flags.predictions_filename,
         # Other
         random_seed=flags.random_seed,
@@ -256,7 +256,10 @@ def process_hparams(hparams):
 
 
 def check_hparams(hparams):
-    if hparams.model_architecture == "h-rnn-rnn" or hparams.model_architecture == "h-cnn-rnn":
+    """ Check for incompatibilities between the parameters."""
+    if hparams.model_architecture == "h-rnn-rnn" or hparams.model_architecture == "h-rnn-cnn" or \
+            hparams.model_architecture == "h-rnn-rnn-crf" or hparams.model_architecture == "rnn" or \
+            hparams.model_architecture == "cnn":
         if hparams.vocab_path is None: raise ValueError("If RNN or CNN in the utterance level, input vocab "
                                                         "should not be None.")
 
@@ -287,11 +290,11 @@ def run_main(default_hparams, train_fn, evaluation_fn):
     # if there hparams.eval_output_folder is not None. we proceed with evaluation based on an existing model.
     # Otherwise, we train a new model.
     if hparams.eval_output_folder:
-        # Evaluation of an existing model.
         ckpt = hparams.ckpt
         # if no checkpoint path is given as input, load the latest checkpoint from the output folder.
         if not ckpt:
             ckpt = tf.train.latest_checkpoint(out_dir)
+        # Evaluation of an existing model.
         evaluation_fn(hparams, ckpt)
     else:
         # Train a new model.
@@ -299,7 +302,7 @@ def run_main(default_hparams, train_fn, evaluation_fn):
 
 
 def main(flags):
-    # create hparams from command line arguments
+    # create hparams from command line arguments. hparams objects holds all the parameters that are required to run the models.
     default_hparams = create_hparams(flags)
     train_fn = train.train
     evaluation_fn = evaluation.evaluate
@@ -310,6 +313,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # add the possible command line arguments to the parser.
     add_arguments(parser)
-    # parse command line args
+    # parse command line args into the flags object.
     flags, unparsed = parser.parse_known_args()
     main(flags)

@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import vocab_utils
 
 # Loading the global embeddings and using the vocabulary to create the embeddings, and finally saving it
 def save_embedding(vocab, embed_path, emb_outpath):
@@ -45,9 +46,9 @@ def save_embedding(vocab, embed_path, emb_outpath):
     np.savetxt(emb_outpath, word_embedding_matrix, fmt='%.18e')
 
 if __name__=="__main__":
-    import vocab_utils
     vocab_path="experiments/data/0.02vocab.txt"
     embed_path = "experiments/embeddings/glove.840B.300d.txt"
+    out_path = "experiments/embeddings/"
     # embed_path = "experiments/embeddings/glove.6B.50d.txt"
     # embed_path = "experiments/embeddings/glove.6B.100d.txt"
     # embed_path = "experiments/embeddings/glove.6B.200d.txt"
@@ -57,5 +58,5 @@ if __name__=="__main__":
     pad=u"<pad>"
     if vocab[0] != pad or vocab[1] != unk:
         vocab = [pad, unk] + vocab
-    save_embedding(vocab, embed_path , "experiments/embeddings/"+
+    save_embedding(vocab, embed_path ,out_path+
                    embed_path.split("/")[-1].replace(".txt","_")+vocab_path.split("/")[-1])

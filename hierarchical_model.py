@@ -8,6 +8,8 @@ class HModel(model.BaseModel):
     """This class implements a hierarchical utterance classifier"""
 
     def compute_loss(self, logits):
+        """The loss differs from that of the non-hierarchical model since in the hierarchical,
+            we make one prediction per timestamp and we pad in the session level, so we also need to mask."""
         target_output = self.iterator.target
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target_output, logits=logits)
         mask = tf.sequence_mask(self.iterator.input_sess_length, target_output.shape[1].value,
@@ -60,12 +62,12 @@ class HModel(model.BaseModel):
 
     @abc.abstractmethod
     def utterance_encoder(self, hparams, input_emb):
-        """All sub-classes should implement this method."""
+        """All sub-classes should implement this method based on the utterance level model (e.g. RNN/CNN)."""
         pass
 
     @abc.abstractmethod
     def session_encoder(self, hparams, utterances_embs):
-        """All sub-classes should implement this method."""
+        """All sub-classes should implement this method based on the session level model (e.g. RNN)."""
         pass
 
 

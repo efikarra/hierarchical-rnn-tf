@@ -47,6 +47,8 @@ def load_pickle_train_val_test(data_folder, train_input_file, train_label_file,
 
 def save_pickle_train_val_test(train_input, train_labels, val_input, val_labels, test_input, test_labels, out_folder,
                                suffix):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     with open(os.path.join(out_folder, "train_" + suffix + ".pickle"), "wb") as f:
         cPickle.dump(train_input, f)
     with open(os.path.join(out_folder, "val_" + suffix + ".pickle"), "wb") as f:
@@ -340,6 +342,8 @@ def save_sessions_to_text(words_tr, labs_tr, words_val, labs_val, words_te, labs
 
 
 def save_labels_sessions_to_text(labs_tr, labs_val, labs_te, out_folder, suffix):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     for i, labs in enumerate(labs_tr):
         labs_tr[i] = [str(l) for l in labs]
     for i, labs in enumerate(labs_te):
@@ -355,6 +359,8 @@ def save_labels_sessions_to_text(labs_tr, labs_val, labs_te, out_folder, suffix)
 
 
 def save_input_sessions_to_text(words_tr, words_val, words_te, out_folder, suffix):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     utils.save_sess_uttrs_to_file(os.path.join(out_folder, "train_input_" + suffix + ".txt"), [[" ".join(uttr) for uttr in sess] for sess in words_tr])
     utils.save_sess_uttrs_to_file(os.path.join(out_folder, "val_input_" + suffix + ".txt"), [[" ".join(uttr) for uttr in sess] for sess in words_val])
     utils.save_sess_uttrs_to_file(os.path.join(out_folder, "test_input_" + suffix + ".txt"), [[" ".join(uttr) for uttr in sess] for sess in words_te])
@@ -366,12 +372,16 @@ def save_utterances_to_text(words_tr, labs_tr, words_val, labs_val, words_te, la
 
 
 def save_labels_utterances_to_text(labs_tr, labs_val, labs_te, out_folder, suffix):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     utils.save_to_file(os.path.join(out_folder, "train_target_" + suffix + ".txt"), [str(l) for l in labs_tr])
     utils.save_to_file(os.path.join(out_folder, "val_target_" + suffix + ".txt"), [str(l) for l in labs_val])
     utils.save_to_file(os.path.join(out_folder, "test_target_" + suffix + ".txt"), [str(l) for l in labs_te])
 
 
 def save_input_utterances_to_text(words_tr, words_val, words_te, out_folder, suffix):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     utils.save_to_file(os.path.join(out_folder, "train_input_" + suffix + ".txt"), [" ".join(uttr) for uttr in words_tr])
     utils.save_to_file(os.path.join(out_folder, "val_input_" + suffix + ".txt"), [" ".join(uttr) for uttr in words_val])
     utils.save_to_file(os.path.join(out_folder, "test_input_" + suffix + ".txt"), [" ".join(uttr) for uttr in words_te])
@@ -389,6 +399,8 @@ def get_subset(input, target, size=10):
 
 def create_subsets(data_folder, out_folder, train_input_file, train_target_file, val_input_file,
                    val_target_file, test_input_file, test_target_file, train_size=10, val_size=4, test_size=4):
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     """ Load train/val/test data after preprocessing them into NN's format and create subsets."""
     train_input = utils.load_file(os.path.join(data_folder, train_input_file))
     train_target = utils.load_file(os.path.join(data_folder, train_target_file))
@@ -417,13 +429,15 @@ def create_subsets(data_folder, out_folder, train_input_file, train_target_file,
     return train_input_sub, train_target_sub, val_input_sub, val_target_sub, test_input_sub, test_target_sub
 
 
-def constract_vocabulary(data_folder, input_file, vocab_name, max_freq, min_freq, sessions=True):
+def constract_vocabulary(out_folder, vocab_name, input_path, max_freq, min_freq, sessions=True):
     """ Build vocabulary.
         data_folder: folder to read data.
         input_file: input file to read data.
         vocab_name: filename to save vocabulary.
     """
-    train_input = utils.load_file(os.path.join(data_folder, input_file))
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
+    train_input = utils.load_file(input_path)
     print("Train data: %d " % len(train_input))
 
     # tokenize input data.
@@ -440,10 +454,10 @@ def constract_vocabulary(data_folder, input_file, vocab_name, max_freq, min_freq
     print("Vocab size: %d " % len(vocab))
     print("Words removed from vocab: %d " % len(oov_words))
 
-    utils.save_file(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name + ".txt"), vocab)
-    utils.save_file(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name + "_oov.txt"), oov_words)
-    save_vocab_dict(os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name + ".txt"),
-                    os.path.join(data_folder, str(max_freq) + str(min_freq) + vocab_name + ".pickle"))
+    utils.save_file(os.path.join(out_folder, str(max_freq) + str(min_freq) + vocab_name + ".txt"), vocab)
+    utils.save_file(os.path.join(out_folder, str(max_freq) + str(min_freq) + vocab_name + "_oov.txt"), oov_words)
+    save_vocab_dict(os.path.join(out_folder, str(max_freq) + str(min_freq) + vocab_name + ".txt"),
+                    os.path.join(out_folder, str(max_freq) + str(min_freq) + vocab_name + ".pickle"))
 
 
 def vocabulary(tokenized_seqs, max_freq=0.0, min_freq=0.0):

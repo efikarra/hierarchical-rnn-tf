@@ -65,6 +65,7 @@ def get_config_proto(log_device_placement=False, allow_soft_placement=True):
 def save_object(filepath, obj):
     with open(filepath,"wb") as f:
         cPickle.dump(obj,f)
+    print("File %s created." % filepath)
 
 
 def save_file(filepath, data):
@@ -73,6 +74,7 @@ def save_file(filepath, data):
         for d in data:
             f.write(unicode(newline+str(d)))
             newline="\n"
+    print("File %s created."%filepath)
 
 
 def load_file(filepath):
@@ -100,6 +102,7 @@ def save_sess_uttrs_to_file(filepath, sessions, uttr_delimiter="#"):
                 newuttr = uttr_delimiter
             f.write(unicode(newline+sess_line))
             newline="\n"
+    print("File %s created." % filepath)
 
 
 def save_sess_labels_to_file(filepath, data, uttr_delimiter="#"):
@@ -108,6 +111,7 @@ def save_sess_labels_to_file(filepath, data, uttr_delimiter="#"):
         for d in data:
             f.write(unicode(newline+uttr_delimiter.join(d)))
             newline="\n"
+    print("File %s createdd." % filepath)
 
 
 def save_to_file(filepath, data):
@@ -116,6 +120,7 @@ def save_to_file(filepath, data):
         for d in data:
             f.write(unicode(newline+str(d)))
             newline="\n"
+    print("File %s created." % filepath)
 
 
 def get_lab_arr(lablist, n_labels=None):

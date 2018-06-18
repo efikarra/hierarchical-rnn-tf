@@ -5,13 +5,17 @@ import numpy as np
 
 
 class BaseModel(object):
+    """ Base model class. All models will inherit from this class."""
+
     def __init__(self, hparams, mode, iterator):
+        # The iterator iterates over the batches of the input data.
         self.iterator = iterator
         self.n_classes = hparams.n_classes
         self.batch_size = iterator.batch_size
+        # TRAIN or EVAL tf models.
         self.mode = mode
 
-        # Set weights initializer
+        # Set weights initializer.
         initializer = model_helper.get_initializer(hparams.init_op, hparams.random_seed, hparams.init_weight)
         tf.get_variable_scope().set_initializer(initializer)
 
@@ -23,12 +27,12 @@ class BaseModel(object):
             self.eval_loss = loss
         # transition parameters are not None only for NNs with CRF on top.
         self.transition_params = self._get_trans_params()
+        # Compute probabilities and labels. Note that for CRF only labels are returned.
         self.predictions = {
             "probabilities": self.compute_probabilities(self.logits),
             "labels": tf.cast(self.compute_labels(self.logits), tf.int32)
         }
-        if self.mode != tf.contrib.learn.ModeKeys.INFER:
-            self.accuracy = self.compute_accuracy(self.predictions["labels"])
+        self.accuracy = self.compute_accuracy(self.predictions["labels"])
 
         ## Learning rate
         print("  start_decay_step=%d, learning_rate=%g, decay_steps %d,"
@@ -36,7 +40,7 @@ class BaseModel(object):
                                     hparams.decay_steps, hparams.decay_factor))
         self.global_step = tf.Variable(0, trainable=False)
         params = tf.trainable_variables()
-        # Gradients and sgd update operation for model training.
+        # Gradients and update operation for model training.
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
             # Optimizer
             if hparams.optimizer == "sgd":
@@ -90,6 +94,7 @@ class BaseModel(object):
         return tf.no_op()
 
     def output_layer(self, hparams, outputs):
+        """ Output layer to transform NN output into logits."""
         with tf.variable_scope("output_layer"):
             out_layer = tf.layers.Dense(hparams.n_classes, use_bias=False, name="output_layer")
             logits = out_layer(outputs)
@@ -112,10 +117,6 @@ class BaseModel(object):
     def eval(self, sess):
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
         return sess.run([self.eval_loss, self.accuracy, self.batch_size, self.predictions])
-
-    def predict(self, sess):
-        assert self.mode == tf.contrib.learn.ModeKeys.INFER
-        return sess.run(self.predictions)
 
     @abc.abstractmethod
     def build_network(self, hparams):
@@ -145,14 +146,11 @@ class FlatModel(BaseModel):
         print ("Creating %s graph" % self.mode)
         dtype = tf.float32
         with tf.variable_scope("flat_model", dtype=dtype):
-            # self.iterator.input is of shape batch_size x
+            # create a representation of utterances.
             input_emb = self.encoder(hparams, self.iterator.input)
             logits = self.output_layer(hparams, input_emb)
             # compute loss
-            if self.mode == tf.contrib.learn.ModeKeys.INFER:
-                loss = None
-            else:
-                loss = self.compute_loss(logits)
+            loss = self.compute_loss(logits)
         return logits, loss
 
     def compute_loss(self, logits):
@@ -175,12 +173,12 @@ class FlatModel(BaseModel):
 
     @abc.abstractmethod
     def encoder(self, hparams, input):
+        """Subclasses implement this method based on the model they use to represent an utterance (e.g. RNN/CNN)."""
         pass
 
 
 class FFN(FlatModel):
-    """This class implements a non hierarchical utterance classifier which encodes the input utterance using a FFN network."""
-
+    """This class implements a non hierarchical utterance CNN classifier."""
     def encoder(self, hparams, input):
         with tf.variable_scope("ffn"):
             input_emb = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
@@ -190,8 +188,7 @@ class FFN(FlatModel):
 
 
 class RNN(FlatModel):
-    """This class implements a non hierarchical utterance classifier which encodes the input utterance using a RNN network."""
-
+    """This class implements a non hierarchical utterance RNN classifier."""
     def init_embeddings(self, hparams):
         self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
             (vocab_size=self.vocab_size,
@@ -212,7 +209,8 @@ class RNN(FlatModel):
                                                                      hparams.uttr_units, hparams.uttr_layers,
                                                                      hparams.uttr_hid_to_out_dropout,
                                                                      self.iterator.input_uttr_length,
-                                                                     hparams.forget_bias, hparams.uttr_activation, self.mode)
+                                                                     hparams.forget_bias, hparams.uttr_activation,
+                                                                     self.mode)
 
             # pool the rnn hidden states to build a representation of each utterance.
             # Pooling methods supported: Last hidden state, Mean pooling, Attention pooling.
@@ -225,7 +223,7 @@ class RNN(FlatModel):
 
 
 class CNN(FlatModel):
-    """This class implements a non hierarchical utterance classifier which encodes the input utterance using a CNN network."""
+    """This class implements a non hierarchical utterance CNN classifier."""
 
     def init_embeddings(self, hparams):
         self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \

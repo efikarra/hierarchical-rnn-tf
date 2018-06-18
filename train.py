@@ -9,7 +9,7 @@ import evaluation
 
 
 def train(hparams):
-    """Train a  model."""
+    """Train a model."""
     num_epochs = hparams.num_epochs
     # number of epochs until next checkpoint.
     num_ckpt_epochs = hparams.num_ckpt_epochs
@@ -18,8 +18,9 @@ def train(hparams):
     out_dir = hparams.out_dir
     log_device_placement = hparams.log_device_placement
 
+    # get the class to create the model.
     model_creator = model_helper.get_model_creator(hparams.model_architecture)
-    # create 2  models in 2 graphs for train and evaluation, with 2 sessions sharing the same variables.
+    # create 2 graphs for train and evaluation, with 2 sessions.
     train_model = model_helper.create_train_model(model_creator, hparams, hparams.train_input_path,
                                                   hparams.train_target_path, mode=tf.contrib.learn.ModeKeys.TRAIN)
     eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL)
@@ -31,7 +32,7 @@ def train(hparams):
     eval_sess = tf.Session(config=config_proto, graph=eval_model.graph)
 
     # create a new train model by initializing all variables of the train graph in the train_sess.
-    # or, using the latest checkpoint in the model_dir, load all variables of the train graph in the train_sess.
+    # or, using the latest checkpoint in the out_dir, load all variables of the train graph in the train_sess.
     # Note that at this point, the eval graph variables are not initialized.
     with train_model.graph.as_default():
         loaded_train_model = model_helper.create_or_load_model(train_model.model, train_sess, "train", out_dir,
@@ -56,7 +57,7 @@ def train(hparams):
 
     # initialize train iterator in train_sess
     train_sess.run(train_model.iterator.initializer)
-    # keep lists of train/val losses for all epochs
+    # keep lists of train/val losses for all epochs.
     train_losses = []
     val_losses = []
     train_accuracies = []
