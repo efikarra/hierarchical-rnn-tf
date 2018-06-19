@@ -120,7 +120,7 @@ def print_cnn_params(eval=False):
                   +"_fs_"+filter_sizes+"_uttrdr_"+uttr_hid_to_out_dropout+"_b_"+batch_size+\
                     "_act_"+uttr_activation+"_p_"+padding+"_str_"+stride+"_emb_"+input_emb_size+emb_name_suffix
 
-        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output/cnn"
+        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output_old/cnn"
         eval_input_path = "" if not eval else " --eval_input_path=experiments/data/test_input_uttr.txt"
         eval_target_path = "" if not eval else " --eval_target_path=experiments/data/test_target_uttr.txt"
         log = "logs_pcori/cnn/log_" + name_suffix if not eval else "logs_pcori/cnn/log_eval"
@@ -178,7 +178,7 @@ def print_rnn_params(eval=False):
                       uttr_hid_to_out_dropout + "_b_" + batch_size + "_uty_"+\
                       uttr_rnn_type+"_po_"+uttr_pooling+"_emb_"+input_emb_size+"_inop_"+init_op+emb_name_suffix
         #+"_v_"+vocab_path.split("/")[-1].replace("vocab.txt","")
-        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output/rnn"
+        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output_old/rnn"
         eval_input_path = "" if not eval else " --eval_input_path=experiments/data/test_input_uttr.txt"
         eval_target_path = "" if not eval else " --eval_target_path=experiments/data/test_target_uttr.txt"
         log="logs_pcori/rnn/log_" + name_suffix if not eval else "logs_pcori/rnn/log_eval"
@@ -273,7 +273,7 @@ def print_h_rnn_rnn_params(eval=False, sess_size=100, bin_type=None):
                       sess_rnn_type+"_su_"+sess_unit_type+"_po_"+uttr_pooling+"_emb_"+input_emb_size+"_inop_"+init_op+\
                      emb_name_suffix+connect_inp_to_out_suff+"sess_"+str(sess_size)+bin_suffix
 
-        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output/"+model_architecture_name
+        eval_folder = "" if not eval else " --eval_output_folder=experiments/eval_output_old/"+model_architecture_name
         eval_input_path = "" if not eval else " --eval_input_path=experiments/data/test_input_sess_"+str(sess_size)+".txt"
         eval_target_path = "" if not eval else " --eval_target_path="+test_target_path
         log = "logs_pcori/"+model_architecture_name+"/log_" + name_suffix if not eval else "logs_pcori/"+model_architecture_name+"/log_eval"

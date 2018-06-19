@@ -71,7 +71,6 @@ def convert_utterances_to_tfrecords(filepath, utterances, labels):
     with open(filepath, 'w') as f:
         writer = tf.python_io.TFRecordWriter(f.name)
         for i in range(utterances.shape[0]):
-            print i
             record = vector_to_tf_example(utterances[i], labels[i])
             writer.write(record.SerializeToString())
     print("File %s created."%filepath)
@@ -81,7 +80,6 @@ def convert_sessions_to_tfrecords(savepath, sessions, labels):
     with open(savepath, 'w') as f:
         writer = tf.python_io.TFRecordWriter(f.name)
         for i in range(len(sessions)):
-            print i
             record = sequence_to_tf_example(sessions[i], labels[i])
             writer.write(record.SerializeToString())
 
@@ -104,13 +102,12 @@ def convert_sessions_bow_to_tfrecords(out_folder, session_size, tr_input_fname="
 
 
 def convert_utterances_bow_to_tfrecords(data_folder, out_folder,
-                                        tr_input_fname="splits_words_tr.pickle",
+                                        tr_input_fname="splits_bow_tr.pickle",
                                         tr_labels_fname="splits_labs_tr.pickle",
-                                        val_input_fname="splits_words_dev.pickle",
+                                        val_input_fname="splits_bow_dev.pickle",
                                         val_labels_fname="splits_labs_dev.pickle",
-                                        te_input_fname="splits_words_te.pickle", te_labels_fname="splits_labs_te.pickle"):
+                                        te_input_fname="splits_bow_te.pickle", te_labels_fname="splits_labs_te.pickle"):
     """Convert utterances given as bag of words into tfrecords."""
-
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
     bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = preprocess.load_pickle_train_val_test(data_folder,
@@ -146,4 +143,4 @@ if __name__ == "__main__":
     convert_utterances_bow_to_tfrecords(mhd_data_folder, out_folder)
     # convert bow mhddata into the format that the hierarchical FFN model (e.g. the one with RNN on session level
     # and FFN on utterance level) takes as input.
-    convert_sessions_bow_to_tfrecords(out_folder, session_size=400)
+    # convert_sessions_bow_to_tfrecords(out_folder, session_size=400)

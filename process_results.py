@@ -89,8 +89,12 @@ def print_per_utter_result(models_names, labs_predictions, labs_test, sids_te, d
 def format_rnn_predictions(predictions, labs, out_filename):
     """Format hierarchical models predictions into the required common format: list of sessions where each session
             is an array of shape = (sess_length, n_classes) in case of probabilities or shape = (sess_length, 1) in case of labels."""
-    sess_predictions = session_flat_predictions(predictions, labs)
-    sess_lab_preds = sess_probs_to_labs(sess_predictions)
+    if type(predictions) is dict:
+        sess_predictions = session_flat_predictions(predictions["probabilities"], labs)
+        sess_lab_preds = predictions["labels"]
+    else:
+        sess_predictions = session_flat_predictions(predictions, labs)
+        sess_lab_preds = sess_probs_to_labs(sess_predictions)
     if out_filename is not None:
         cPickle.dump(sess_predictions, open("experiments/formatted_preds/" + out_filename + "_prob.pkl", "wb"))
         cPickle.dump(sess_lab_preds, open("experiments/formatted_preds/" + out_filename + "_pred.pkl", "wb"))
@@ -138,23 +142,23 @@ def results_pipeline():
     # First we transform (and save) predictions as produced by the models into a common format in order to run the evaluation methods.
     # The required common format is: list of sessions where each session
     # is an array of shape = (sess_length, n_classes) in case of probabilities or shape = (sess_length, 1) in case of labels.
-    rnn_preds = cPickle.load(open("experiments/eval_output/rnn/predictions.pickle", "rb"))
+    rnn_preds = cPickle.load(open("experiments/eval_output_old/rnn/predictions.pickle", "rb"))
     out_filename = "RNN"
     _, rnn_lab_preds = format_rnn_predictions (rnn_preds, labs_te, out_filename)
 
-    hrnn_preds = cPickle.load(open("experiments/eval_output/h_rnn_rnn/predictions.pickle", "rb"))
+    hrnn_preds = cPickle.load(open("experiments/eval_output_old/h_rnn_rnn/predictions.pickle", "rb"))
     out_file = "H_RNN_RNN"
     _, hrnn_lab_preds = format_hierarchical_predictions(hrnn_preds, labs_sess, labs_te, out_file)
 
-    hrnn_crf_preds = cPickle.load(open("experiments/eval_output/h_rnn_rnn_crf/predictions.pickle", "rb"))
+    hrnn_crf_preds = cPickle.load(open("experiments/eval_output_old/h_rnn_rnn_crf/predictions.pickle", "rb"))
     out_filename = "H_RNN_RNN_CRF"
     _, hrnn_crf_lab_preds = format_hierarchical_predictions(hrnn_crf_preds, labs_sess, labs_te, out_filename)
 
-    hrnn_conn_preds = cPickle.load(open("experiments/eval_output/results_400_conn/h_rnn_rnn/predictions.pickle", "rb"))
+    hrnn_conn_preds = cPickle.load(open("experiments/eval_output_old/results_400_conn/h_rnn_rnn/predictions.pickle", "rb"))
     out_file = "H_RNN_RNN_ConnInp"
     _, hrnn_conn_lab_preds = format_hierarchical_predictions(hrnn_conn_preds, labs_sess, labs_te, out_file)
 
-    hrnn_crf_conn_preds = cPickle.load(open("experiments/eval_output/results_400_conn/h_rnn_rnn_crf/predictions.pickle", "rb"))
+    hrnn_crf_conn_preds = cPickle.load(open("experiments/eval_output_old/results_400_conn/h_rnn_rnn_crf/predictions.pickle", "rb"))
     out_filename = "H_RNN_RNN_CRF_ConnInp"
     _, hrnn_crf_conn_lab_preds = format_hierarchical_predictions(hrnn_crf_conn_preds, labs_sess, labs_te, out_filename)
 

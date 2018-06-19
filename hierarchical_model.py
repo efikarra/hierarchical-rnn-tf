@@ -80,7 +80,8 @@ class H_RNN(HModel):
                                                                      hparams.sess_rnn_type, hparams.sess_unit_type,
                                                                      hparams.sess_units, hparams.sess_layers,
                                                                      hparams.sess_hid_to_out_dropout,
-                                                                     self.iterator.input_sess_length, hparams.sess_activation,
+                                                                     self.iterator.input_sess_length, hparams.forget_bias,
+                                                                     hparams.sess_activation,
                                                                      self.mode)
         return rnn_outputs
 

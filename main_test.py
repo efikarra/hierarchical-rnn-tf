@@ -17,7 +17,7 @@ if __name__ == '__main__':
     params.eval_target_path = 'experiments/data/test_target_sess_400.txt'
     # output folder to save evaluation results. Let this None to train a model.
     params.eval_output_folder = None
-    # params.eval_output_folder = "experiments/eval_output"
+    params.eval_output_folder = "experiments/eval_output"
     
     # Input file for pretrained embeddings. Let it None for no pre-trained embeddings.
     # params.input_emb_file = 'experiments/embeddings/glove.840B.300d_0.01vocab.txt'
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     params.sess_rnn_type = 'uni'
     params.uttr_unit_type = 'gru'
     params.sess_unit_type = 'gru'
-    params.uttr_pooling = 'attn_context'
+    params.uttr_pooling = 'last'
     params.uttr_attention_size = 32
     params.input_emb_size = 300
     # cnn

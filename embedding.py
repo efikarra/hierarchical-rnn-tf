@@ -46,7 +46,7 @@ def save_embedding(vocab, embed_path, emb_outpath):
     np.savetxt(emb_outpath, word_embedding_matrix, fmt='%.18e')
 
 if __name__=="__main__":
-    vocab_path="experiments/data/0.02vocab.txt"
+    vocab_path="experiments/data/0.00.1vocab.txt"
     embed_path = "experiments/embeddings/glove.840B.300d.txt"
     out_path = "experiments/embeddings/"
     # embed_path = "experiments/embeddings/glove.6B.50d.txt"

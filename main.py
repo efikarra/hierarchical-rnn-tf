@@ -290,6 +290,7 @@ def run_main(default_hparams, train_fn, evaluation_fn):
     # if there hparams.eval_output_folder is not None. we proceed with evaluation based on an existing model.
     # Otherwise, we train a new model.
     if hparams.eval_output_folder:
+        if not tf.gfile.Exists(hparams.eval_output_folder): tf.gfile.MakeDirs(hparams.eval_output_folder)
         ckpt = hparams.ckpt
         # if no checkpoint path is given as input, load the latest checkpoint from the output folder.
         if not ckpt:
