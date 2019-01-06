@@ -1,0 +1,4 @@
+1) save mhd data in the folder "experiments/data/mhddata.
+2) preprocess_main.py: converts mhd data into the inout format required by the NN models. It also creates the vocabulary.
+3) Given the vocabulary, use embedding.py to create/save embedding matrices. 
+4) main_test.py: after creating input data for models, use this to run models. If you want to train a new model, set params.eval_output_folder=None. If you want to evaluate an existing model set params.eval_output_folder. 

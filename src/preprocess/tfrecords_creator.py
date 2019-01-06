@@ -1,7 +1,7 @@
 """Create TFRecords files in case of FFN models in which the input data are numpy arrays with bag of words features."""
 import tensorflow as tf
 import numpy as np
-import preprocess
+import src.preprocess
 import os
 
 
@@ -91,10 +91,10 @@ def convert_sessions_bow_to_tfrecords(out_folder, session_size, tr_input_fname="
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
     bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = \
-        preprocess.split_bow_sessions("experiments/mhddata/", tr_input_fname,
-                                      tr_labels_fname,
-                             val_input_fname, val_labels_fname,
-                                      te_input_fname, te_labels_fname, session_size)
+        src.preprocess.preprocess.split_bow_sessions("experiments/mhddata/", tr_input_fname,
+                                                     tr_labels_fname,
+                                                     val_input_fname, val_labels_fname,
+                                                     te_input_fname, te_labels_fname, session_size)
 
     convert_sessions_to_tfrecords(out_folder + "train_bow_sess_" + str(session_size) + ".tfrecord", bow_tr, labs_tr)
     convert_sessions_to_tfrecords(out_folder + "val_bow_sess_" + str(session_size) + ".tfrecord", bow_dev, labs_dev)
@@ -110,13 +110,13 @@ def convert_utterances_bow_to_tfrecords(data_folder, out_folder,
     """Convert utterances given as bag of words into tfrecords."""
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
-    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = preprocess.load_pickle_train_val_test(data_folder,
-                                                                                                tr_input_fname,
-                                                                                                tr_labels_fname,
-                                                                                                val_input_fname,
-                                                                                                val_labels_fname,
-                                                                                                te_input_fname,
-                                                                                                te_labels_fname)
+    bow_tr, labs_tr, bow_dev, labs_dev, bow_te, labs_te = src.preprocess.preprocess.load_pickle_train_val_test(data_folder,
+                                                                                                               tr_input_fname,
+                                                                                                               tr_labels_fname,
+                                                                                                               val_input_fname,
+                                                                                                               val_labels_fname,
+                                                                                                               te_input_fname,
+                                                                                                               te_labels_fname)
     for i, sess in enumerate(bow_tr):
         bow_tr[i] = np.squeeze(np.asarray(sess.todense()))
     for i, sess in enumerate(bow_dev):

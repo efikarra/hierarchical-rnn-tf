@@ -1,9 +1,10 @@
 """ After training models and get predictions on test data, use this module to run evaluation methods on the predictions."""
 import numpy as np
 import cPickle
-import utils
-from utils import sess_probs_to_labs
-import evaluate_methods
+import src.utils
+from src.utils import sess_probs_to_labs
+from src.evaluation import evaluate_methods
+
 
 def print_format_metrics(results):
     bin_metrics = ["precision", "recall", "auc", "rprecision", "f1score"]
@@ -136,7 +137,7 @@ def results_pipeline():
     # labs_sess: target test labels in the format used by the trained models.
     # So for example in experiments/data/test_target_sess_400.txt labels file, original sessions are splitted into
     # subsessions of length 400.
-    labs_sess = utils.load_labs_from_text_sess("experiments/data/test_target_sess_400.txt")
+    labs_sess = src.utils.load_labs_from_text_sess("experiments/data/test_target_sess_400.txt")
 
     # each predictions.pickle contains a dict with entries "probabilities" and "labels". These are the outputs of each model for the test set.
     # First we transform (and save) predictions as produced by the models into a common format in order to run the evaluation methods.
@@ -177,10 +178,10 @@ def results_pipeline():
     print("\n")
     print("Metrics for predictions without the 4-count rule:")
     mental_health_topics = [10, 11]
-    hrnn_lab_preds_4r = utils.fix_uttr_count_rule(hrnn_lab_preds, set(mental_health_topics))
-    hrnn_crf_lab_preds_4r = utils.fix_uttr_count_rule(hrnn_crf_lab_preds, set(mental_health_topics))
-    hrnn_conn_lab_preds_4r = utils.fix_uttr_count_rule(hrnn_conn_lab_preds, set(mental_health_topics))
-    hrnn_crf_conn_lab_preds_4r = utils.fix_uttr_count_rule(hrnn_crf_conn_lab_preds, set(mental_health_topics))
+    hrnn_lab_preds_4r = src.utils.fix_uttr_count_rule(hrnn_lab_preds, set(mental_health_topics))
+    hrnn_crf_lab_preds_4r = src.utils.fix_uttr_count_rule(hrnn_crf_lab_preds, set(mental_health_topics))
+    hrnn_conn_lab_preds_4r = src.utils.fix_uttr_count_rule(hrnn_conn_lab_preds, set(mental_health_topics))
+    hrnn_crf_conn_lab_preds_4r = src.utils.fix_uttr_count_rule(hrnn_crf_conn_lab_preds, set(mental_health_topics))
     h_models_names_4r = ["H_RNN_RNN_4r", "H_RNN_RNN_CRF_4r", "H_RNN_RNN_ConnInp_4r", "H_RNN_RNN_CRF_ConnInp_4r"]
     h_labs_pred_list_4r = [hrnn_lab_preds_4r, hrnn_crf_lab_preds_4r, hrnn_conn_lab_preds_4r, hrnn_crf_conn_lab_preds_4r]
     metrics_pipeline(labs_te, sids_te, docs_te, lid2name, h_labs_pred_list_4r, flat_labs_pred_list, h_models_names_4r,
@@ -189,21 +190,21 @@ def results_pipeline():
     # compute all metrics after mapping the formatted model predictions into broader topics.
     print("\n")
     print("Metrics for predictions mapped into broader topics:")
-    labs_te_lt = utils.convert_to_broader_topic(labs_te, lab2ltr, lid2lab, lt2ltid)
-    rnn_lab_preds_lt = utils.convert_to_broader_topic(rnn_lab_preds, lab2ltr, lid2lab, lt2ltid)
-    hrnn_lab_preds_lt = utils.convert_to_broader_topic(hrnn_lab_preds, lab2ltr, lid2lab, lt2ltid)
-    hrnn_crf_lab_preds_lt = utils.convert_to_broader_topic(hrnn_crf_lab_preds, lab2ltr, lid2lab, lt2ltid)
-    hrnn_conn_lab_preds_lt = utils.convert_to_broader_topic(hrnn_conn_lab_preds, lab2ltr, lid2lab, lt2ltid)
-    hrnn_crf_conn_lab_preds_lt = utils.convert_to_broader_topic(hrnn_crf_conn_lab_preds, lab2ltr, lid2lab, lt2ltid)
+    labs_te_lt = src.utils.convert_to_broader_topic(labs_te, lab2ltr, lid2lab, lt2ltid)
+    rnn_lab_preds_lt = src.utils.convert_to_broader_topic(rnn_lab_preds, lab2ltr, lid2lab, lt2ltid)
+    hrnn_lab_preds_lt = src.utils.convert_to_broader_topic(hrnn_lab_preds, lab2ltr, lid2lab, lt2ltid)
+    hrnn_crf_lab_preds_lt = src.utils.convert_to_broader_topic(hrnn_crf_lab_preds, lab2ltr, lid2lab, lt2ltid)
+    hrnn_conn_lab_preds_lt = src.utils.convert_to_broader_topic(hrnn_conn_lab_preds, lab2ltr, lid2lab, lt2ltid)
+    hrnn_crf_conn_lab_preds_lt = src.utils.convert_to_broader_topic(hrnn_crf_conn_lab_preds, lab2ltr, lid2lab, lt2ltid)
 
     h_models_names = ["H_RNN_RNN_lt", "H_RNN_RNN_CRF_lt", "H_RNN_RNN_ConnInp_lt", "H_RNN_RNN_CRF_ConnInp_lt"]
     flat_model_names = ["RNN_lt"]
     h_labs_pred_list = [hrnn_lab_preds_lt, hrnn_crf_lab_preds_lt, hrnn_conn_lab_preds_lt, hrnn_crf_conn_lab_preds_lt]
     flat_labs_pred_list = [rnn_lab_preds_lt]
     labs_tr = cPickle.load(open("experiments/data/mhddata/splits_labs_tr.pickle", "rb"))
-    labs_tr_lt = utils.convert_to_broader_topic(labs_tr, lab2ltr, lid2lab, lt2ltid)
-    labarr_tr_lt_f = utils.flatten_nested_labels(labs_tr_lt)
-    splits_labarr_tr_lt_f = utils.get_lab_arr(labarr_tr_lt_f)
+    labs_tr_lt = src.utils.convert_to_broader_topic(labs_tr, lab2ltr, lid2lab, lt2ltid)
+    labarr_tr_lt_f = src.utils.flatten_nested_labels(labs_tr_lt)
+    splits_labarr_tr_lt_f = src.utils.get_lab_arr(labarr_tr_lt_f)
     metrics_pipeline(labs_te_lt, sids_te, docs_te, ltid2name, h_labs_pred_list, flat_labs_pred_list, h_models_names,
                      flat_model_names, splits_labarr_tr_lt_f, outpath="experiments/results/results_lt.txt")
 

@@ -6,7 +6,7 @@ import numpy as np
 import train
 import utils
 import evaluation
-import vocab_utils
+from src.utils import vocab_utils
 
 
 def add_arguments(parser):

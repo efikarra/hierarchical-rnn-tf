@@ -1,5 +1,5 @@
 import tensorflow as tf
-import model_helper
+import src.model.model_helper
 import abc
 import numpy as np
 
@@ -16,7 +16,7 @@ class BaseModel(object):
         self.mode = mode
 
         # Set weights initializer.
-        initializer = model_helper.get_initializer(hparams.init_op, hparams.random_seed, hparams.init_weight)
+        initializer = src.model.model_helper.get_initializer(hparams.init_op, hparams.random_seed, hparams.init_weight)
         tf.get_variable_scope().set_initializer(initializer)
 
         # build tensorflow graph of the main model.
@@ -66,8 +66,8 @@ class BaseModel(object):
             gradients = tf.gradients(self.train_loss, params,
                                      colocate_gradients_with_ops=hparams.colocate_gradients_with_ops)
             # clip gradients below a threshold to avoid explosion
-            clipped_grads, grad_norm_summary, grad_norm = model_helper.gradient_clip(gradients,
-                                                                                     max_gradient_norm=hparams.max_gradient_norm)
+            clipped_grads, grad_norm_summary, grad_norm = src.model.model_helper.gradient_clip(gradients,
+                                                                                               max_gradient_norm=hparams.max_gradient_norm)
             self.grad_norm = grad_norm
             # ask the optimizer to apply the processed gradients. We give as argument a list of pairs (gradient,variable).
             self.update = opt.apply_gradients(
@@ -181,16 +181,16 @@ class FFN(FlatModel):
     """This class implements a non hierarchical utterance CNN classifier."""
     def encoder(self, hparams, input):
         with tf.variable_scope("ffn"):
-            input_emb = model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
-                                         hid_to_out_dropouts=hparams.uttr_hid_to_out_dropout,
-                                         activations=hparams.uttr_activation, mode=self.mode)
+            input_emb = src.model.model_helper.ffn(input, layers=hparams.uttr_layers, units_list=hparams.uttr_units, bias=True,
+                                                   hid_to_out_dropouts=hparams.uttr_hid_to_out_dropout,
+                                                   activations=hparams.uttr_activation, mode=self.mode)
             return input_emb
 
 
 class RNN(FlatModel):
     """This class implements a non hierarchical utterance RNN classifier."""
     def init_embeddings(self, hparams):
-        self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
+        self.input_embedding, self.input_emb_init, self.input_emb_placeholder = src.model.model_helper.create_embeddings \
             (vocab_size=self.vocab_size,
              emb_size=hparams.input_emb_size,
              emb_trainable=hparams.input_emb_trainable,
@@ -204,21 +204,21 @@ class RNN(FlatModel):
         with tf.variable_scope("utterance_rnn") as scope:
             # rnn_outputs.shape = (batch_size, max_uttr_length, uttr_units) or
             # (batch_size, num_utterances, 2*uttr_units) for bi-directional rnn.
-            rnn_outputs, last_hidden_sate = model_helper.rnn_network(emb_inp, scope.dtype,
-                                                                     hparams.uttr_rnn_type, hparams.uttr_unit_type,
-                                                                     hparams.uttr_units, hparams.uttr_layers,
-                                                                     hparams.uttr_hid_to_out_dropout,
-                                                                     self.iterator.input_uttr_length,
-                                                                     hparams.forget_bias, hparams.uttr_activation,
-                                                                     self.mode)
+            rnn_outputs, last_hidden_sate = src.model.model_helper.rnn_network(emb_inp, scope.dtype,
+                                                                               hparams.uttr_rnn_type, hparams.uttr_unit_type,
+                                                                               hparams.uttr_units, hparams.uttr_layers,
+                                                                               hparams.uttr_hid_to_out_dropout,
+                                                                               self.iterator.input_uttr_length,
+                                                                               hparams.forget_bias, hparams.uttr_activation,
+                                                                               self.mode)
 
             # pool the rnn hidden states to build a representation of each utterance.
             # Pooling methods supported: Last hidden state, Mean pooling, Attention pooling.
             # utterances_embs.shape = (batch_size, uttr_units)
-            utterances_embs, self.attn_alphas = model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs,
-                                                                             last_hidden_sate,
-                                                                             self.iterator.input_uttr_length,
-                                                                             hparams.uttr_attention_size)
+            utterances_embs, self.attn_alphas = src.model.model_helper.pool_rnn_output(hparams.uttr_pooling, rnn_outputs,
+                                                                                       last_hidden_sate,
+                                                                                       self.iterator.input_uttr_length,
+                                                                                       hparams.uttr_attention_size)
         return utterances_embs
 
 
@@ -226,7 +226,7 @@ class CNN(FlatModel):
     """This class implements a non hierarchical utterance CNN classifier."""
 
     def init_embeddings(self, hparams):
-        self.input_embedding, self.input_emb_init, self.input_emb_placeholder = model_helper.create_embeddings \
+        self.input_embedding, self.input_emb_init, self.input_emb_placeholder = src.model.model_helper.create_embeddings \
             (vocab_size=self.vocab_size,
              emb_size=hparams.input_emb_size,
              emb_trainable=hparams.input_emb_trainable,
@@ -240,8 +240,8 @@ class CNN(FlatModel):
         emb_inp = tf.expand_dims(emb_inp, -1)
         with tf.variable_scope("utterance_cnn"):
             filter_sizes = [(filter_size, hparams.input_emb_size) for filter_size in hparams.filter_sizes]
-            cnn_outputs = model_helper.cnn(emb_inp, self.iterator.input_uttr_length, filter_sizes,
-                                           hparams.num_filters, hparams.stride,
-                                           hparams.uttr_activation[0], hparams.uttr_hid_to_out_dropout[0],
-                                           self.mode, hparams.padding)
+            cnn_outputs = src.model.model_helper.cnn(emb_inp, self.iterator.input_uttr_length, filter_sizes,
+                                                     hparams.num_filters, hparams.stride,
+                                                     hparams.uttr_activation[0], hparams.uttr_hid_to_out_dropout[0],
+                                                     self.mode, hparams.padding)
         return cnn_outputs

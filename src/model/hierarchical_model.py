@@ -1,10 +1,10 @@
 import tensorflow as tf
-import model_helper
+from src.model import model_helper
 import abc
-import model
+import src.model
 
 
-class HModel(model.BaseModel):
+class HModel(src.model.BaseModel):
     """This class implements a hierarchical utterance classifier"""
 
     def compute_loss(self, logits):

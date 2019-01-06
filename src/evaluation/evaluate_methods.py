@@ -1,5 +1,5 @@
 import numpy as np
-from utils import get_lab_arr, save_sq_mat_with_labels
+from src.utils import get_lab_arr, save_sq_mat_with_labels
 from sklearn.metrics import precision_score, recall_score, roc_auc_score, f1_score, confusion_matrix
 
 # most methods of this module were copied from Jihyun's github: https://github.com/jihyunp/PP_dialog_models

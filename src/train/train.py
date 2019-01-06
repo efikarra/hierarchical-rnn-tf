@@ -3,9 +3,9 @@ import numpy as np
 import time
 import os
 
-import utils
-import model_helper
-import evaluation
+import src.utils
+from src.model import model_helper
+import src.evaluation
 
 
 def train(hparams):
@@ -26,7 +26,7 @@ def train(hparams):
     eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL)
 
     # some configuration of gpus logging
-    config_proto = utils.get_config_proto(log_device_placement=log_device_placement, allow_soft_placement=True)
+    config_proto = src.utils.get_config_proto(log_device_placement=log_device_placement, allow_soft_placement=True)
     # create two separate sessions for trai/evaluation.
     train_sess = tf.Session(config=config_proto, graph=train_model.graph)
     eval_sess = tf.Session(config=config_proto, graph=eval_model.graph)
@@ -155,6 +155,7 @@ def train(hparams):
     print("Min val loss: %.3f at epoch %d" % (min_val_loss, min_val_loss_idx))
     print("Max val accuracy: %.3f at epoch %d" % (max_val_acc, max_val_acc_idx))
     summary_writer.close()
+    return [min_val_loss, min_val_loss_idx, max_val_acc, max_val_acc_idx]
 
 
 def run_evaluation(eval_model, eval_sess, model_dir, input_eval_file, output_eval_file, input_emb_weights,
@@ -172,7 +173,7 @@ def run_evaluation(eval_model, eval_sess, model_dir, input_eval_file, output_eva
             eval_model.input_file_placeholder: input_eval_file,
             eval_model.output_file_placeholder: output_eval_file
         }
-    val_loss, val_accuracy = evaluation.eval(loaded_eval_model, eval_sess, eval_model.iterator, eval_iterator_feed_dict)
+    val_loss, val_accuracy = src.evaluation.evaluation.eval(loaded_eval_model, eval_sess, eval_model.iterator, eval_iterator_feed_dict)
     model_helper.add_summary(summary_writer, "val_loss", val_loss)
     model_helper.add_summary(summary_writer, "val_accuracy", val_accuracy)
     return val_loss, val_accuracy

@@ -2,10 +2,10 @@
 import collections
 import tensorflow as tf
 import time
-import iterator_utils
-import vocab_utils
-import pooling
-import model
+import src.utils.iterator_utils
+import src.utils.vocab_utils
+import src.model.pooling
+import src.model
 
 
 class TrainModel(collections.namedtuple("TrainModel", ("graph", "model", "iterator"))):
@@ -27,29 +27,29 @@ def get_dataset_iterator(hparams, input_path, target_path, batch_size, shuffle=T
         # So we don't need anoutput_dataset tf dataset.
         if is_hierarchical(hparams.model_architecture):
             input_dataset = tf.data.Dataset.from_tensor_slices(input_path)
-            iterator = iterator_utils.get_iterator_hierarchical_bow(input_dataset, batch_size=batch_size,
-                                                                    feature_size=hparams.feature_size,
-                                                                    random_seed=hparams.random_seed, shuffle=shuffle)
+            iterator = src.utils.utils.iterator_utils.get_iterator_hierarchical_bow(input_dataset, batch_size=batch_size,
+                                                                                    feature_size=hparams.feature_size,
+                                                                                    random_seed=hparams.random_seed, shuffle=shuffle)
         else:
             input_dataset = tf.data.Dataset.from_tensor_slices(input_path)
-            iterator = iterator_utils.get_iterator_flat_bow(input_dataset, batch_size=batch_size,
-                                                            feature_size=hparams.feature_size,
-                                                            random_seed=hparams.random_seed, shuffle=shuffle)
+            iterator = src.utils.utils.iterator_utils.get_iterator_flat_bow(input_dataset, batch_size=batch_size,
+                                                                            feature_size=hparams.feature_size,
+                                                                            random_seed=hparams.random_seed, shuffle=shuffle)
     else:
         # create a table to map words to vocab ids.
-        input_vocab_table = vocab_utils.create_vocab_table(hparams.vocab_path)
+        input_vocab_table = src.vocab_utils.create_vocab_table(hparams.vocab_path)
         input_dataset = tf.data.TextLineDataset(input_path)
         output_dataset = tf.data.TextLineDataset(target_path)
         if is_hierarchical(hparams.model_architecture):
-            iterator = iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
-                                                                batch_size=batch_size,
-                                                                random_seed=hparams.random_seed,
-                                                                pad=hparams.pad, shuffle=shuffle)
+            iterator = src.utils.utils.iterator_utils.get_iterator_hierarchical(input_dataset, output_dataset, input_vocab_table,
+                                                                                batch_size=batch_size,
+                                                                                random_seed=hparams.random_seed,
+                                                                                pad=hparams.pad, shuffle=shuffle)
         else:
-            iterator = iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table,
-                                                        batch_size=batch_size,
-                                                        random_seed=hparams.random_seed,
-                                                        pad=hparams.pad, shuffle=shuffle)
+            iterator = src.utils.utils.iterator_utils.get_iterator_flat(input_dataset, output_dataset, input_vocab_table,
+                                                                        batch_size=batch_size,
+                                                                        random_seed=hparams.random_seed,
+                                                                        pad=hparams.pad, shuffle=shuffle)
     return iterator
 
 
@@ -77,7 +77,7 @@ def create_train_model(model_creator, hparams, input_path, target_path, mode):
         iterator = get_dataset_iterator(hparams, input_path, target_path, hparams.batch_size)
         # create the actual model (the tf.graph).
         model = model_creator(hparams, mode, iterator)
-        return TrainModel(graph, model, iterator)
+        return TrainModel(graph, src.model, iterator)
 
 
 def create_eval_model(model_creator, hparams, mode, shuffle=True):
@@ -93,7 +93,7 @@ def create_eval_model(model_creator, hparams, mode, shuffle=True):
         iterator = get_dataset_iterator(hparams, input_file_placeholder, output_file_placeholder,
                                         hparams.eval_batch_size, shuffle)
         model = model_creator(hparams, mode, iterator)
-        return EvalModel(graph, model, input_file_placeholder, output_file_placeholder, iterator)
+        return EvalModel(graph, src.model, input_file_placeholder, output_file_placeholder, iterator)
 
 
 def rnn_network(inputs, dtype, rnn_type,
@@ -196,12 +196,12 @@ def pool_rnn_output(pooling_method, rnn_outputs, rnn_last_state, sequence_length
         else:
             return rnn_last_state, attn_alphas
     elif pooling_method == 'mean':
-        output_creator = pooling.MeanPooling(rnn_outputs, mask)
+        output_creator = src.model.pooling.MeanPooling(rnn_outputs, mask)
     elif pooling_method == 'attn':
-        output_creator = pooling.AttentionPooling(inputs=rnn_outputs, mask=mask)
+        output_creator = src.model.pooling.AttentionPooling(inputs=rnn_outputs, mask=mask)
     elif pooling_method == 'attn_context':
-        output_creator = pooling.AttentionWithContextPooling(inputs=rnn_outputs, attention_size=attention_size,
-                                                             mask=mask)
+        output_creator = src.model.pooling.AttentionWithContextPooling(inputs=rnn_outputs, attention_size=attention_size,
+                                                                       mask=mask)
     else:
         raise ValueError("Unknown Pooling method.")
     rnn_output = output_creator()
@@ -318,7 +318,7 @@ def run_batch_evaluation(model, session):
     # run evaluation until you iterate over all batches.
     while True:
         try:
-            batch_loss, batch_accuracy, batch_size, _ = model.eval(session)
+            batch_loss, batch_accuracy, batch_size, _ = src.model.eval(session)
             loss += batch_loss
             accuracy += batch_accuracy
             batch_count += 1
@@ -338,7 +338,7 @@ def run_batch_evaluation_and_prediction(model, session):
     # run evaluation until you iterate over all batches and also collect the predictions of each batch.
     while True:
         try:
-            batch_loss, batch_accuracy, batch_size, predictions = model.eval(session)
+            batch_loss, batch_accuracy, batch_size, predictions = src.model.eval(session)
             loss += batch_loss
             accuracy += batch_accuracy
             batch_count += 1
@@ -359,9 +359,9 @@ def load_model(model, session, name, ckpt):
     # initialize all read-only tables of the graph, e.g., vocabulary tables or embedding tables.
     session.run(tf.local_variables_initializer())
     session.run(tf.tables_initializer())
-    model.saver.restore(session, ckpt)
+    src.model.saver.restore(session, ckpt)
     print("loaded %s model parameters from %s, time %.2fs" % (name, ckpt, time.time() - start_time))
-    return model
+    return src.model
 
 
 def create_or_load_model(model, session, name, model_dir, input_emb_weights=None):
@@ -369,7 +369,7 @@ def create_or_load_model(model, session, name, model_dir, input_emb_weights=None
     # Otherwise initialize the model variables.
     latest_ckpt = tf.train.latest_checkpoint(model_dir)
     if latest_ckpt:
-        model = load_model(model, session, name, latest_ckpt)
+        model = load_model(src.model, session, name, latest_ckpt)
     else:
         start_time = time.time()
         # initialize all global and local variables in the graph, e.g., the model's formatted_preds.
@@ -378,9 +378,9 @@ def create_or_load_model(model, session, name, model_dir, input_emb_weights=None
         # initialize all read-only tables of the graph, e.g., vocabulary tables or embedding tables.
         session.run(tf.tables_initializer())
         if input_emb_weights is not None:
-            session.run(model.input_emb_init, feed_dict={model.input_emb_placeholder: input_emb_weights})
+            session.run(src.model.input_emb_init, feed_dict={src.model.input_emb_placeholder: input_emb_weights})
         print ("created model %s with new parameters, time %.2fs" % (name, time.time() - start_time))
-    return model
+    return src.model
 
 
 def add_summary(summary_writer, tag, value):
@@ -391,7 +391,7 @@ def add_summary(summary_writer, tag, value):
 
 
 def get_model_creator(model_architecture):
-    import hierarchical_model
+    from src.model import hierarchical_model
     if model_architecture == "h-rnn-ffn":
         model_creator = hierarchical_model.H_RNN_FFN
     elif model_architecture == "h-rnn-cnn":
@@ -401,11 +401,11 @@ def get_model_creator(model_architecture):
     elif model_architecture == "h-rnn-rnn-crf":
         model_creator = hierarchical_model.H_RNN_RNN_CRF
     elif model_architecture == "rnn":
-        model_creator = model.RNN
+        model_creator = src.model.RNN
     elif model_architecture == "ffn":
-        model_creator = model.FFN
+        model_creator = src.model.FFN
     elif model_architecture == "cnn":
-        model_creator = model.CNN
+        model_creator = src.model.CNN
     else:
         raise ValueError("Unknown model architecture. Only simple_rnn is supported so far.")
     return model_creator

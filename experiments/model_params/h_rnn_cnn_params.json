@@ -1,0 +1,20 @@
+{
+"model_architecture": ["cnn"],
+"filter_sizes": ["3,4"],
+"num_filters": ["100"],
+"padding": ["valid"],
+"stride": ["1"],
+"uttr_hid_to_out_dropout": ["0.5"],
+  "uttr_activation":["relu"],
+  "sess_units": ["64"],
+"sess_layers": ["1"],
+"sess_hid_to_out_dropout": ["0.7"],
+"sess_rnn_type": ["bi"],
+"sess_unit_type": ["gru"],
+"input_emb_size": ["300"],
+"batch_size": ["128"],
+"num_epochs": ["20"],
+"learning_rate": ["0.01"],
+"init_op": ["glorot_normal"],
+"input_emb_file": ["experiments/embeddings/glove.840B.300d_0.00.1vocab.txt"]
+}

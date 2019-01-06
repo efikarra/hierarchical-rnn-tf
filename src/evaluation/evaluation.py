@@ -1,9 +1,9 @@
 import tensorflow as tf
-import model_helper
+from src.model import model_helper
 import os
 import cPickle
 import numpy as np
-import utils
+import src.utils
 
 
 def eval(model, sess, iterator, iterator_feed_dict):
@@ -26,19 +26,14 @@ def evaluate(hparams, ckpt):
     print("Starting evaluation and predictions:")
     # create eval graph.
     eval_model = model_helper.create_eval_model(model_creator, hparams, tf.contrib.learn.ModeKeys.EVAL, shuffle=False)
-    eval_sess = tf.Session(config=utils.get_config_proto(), graph=eval_model.graph)
+    eval_sess = tf.Session(config=src.utils.get_config_proto(), graph=eval_model.graph)
     with eval_model.graph.as_default():
         # load pretrained model.
         loaded_eval_model = model_helper.load_model(eval_model.model, eval_sess, "evaluation", ckpt)
-    if hparams.val_target_path:
-        iterator_feed_dict = {
-            eval_model.input_file_placeholder: hparams.eval_input_path,
-            eval_model.output_file_placeholder: hparams.eval_target_path
-        }
-    else:
-        iterator_feed_dict = {
-            eval_model.input_file_placeholder: hparams.eval_input_path,
-        }
+    iterator_feed_dict = {
+        eval_model.input_file_placeholder: hparams.eval_input_path,
+        eval_model.output_file_placeholder: hparams.eval_target_path
+    }
     eval_loss, eval_accuracy, predictions = eval_and_precit(loaded_eval_model, eval_sess, eval_model.iterator,
                                                             iterator_feed_dict)
     print("Eval loss: %.3f, Eval accuracy: %.3f" % (eval_loss, eval_accuracy))
